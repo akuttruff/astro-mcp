@@ -1,9 +1,11 @@
 """MCP server setup, tool registration, and main entry point."""
 
+import json
 from mcp.server.mcpserver import MCPServer
 
 from astro_mcp.config import HOUSE_SYSTEMS_INFO
 from astro_mcp.tools import natal, solar_return, progressed, transit, synastry
+from astro_mcp.utils import get_current_datetime
 
 # Create MCPServer instance
 mcp = MCPServer(
@@ -90,9 +92,23 @@ def register_reference_tools():
 
         return json.dumps(result, indent=2)
 
+
+    def get_current_datetime_tool() -> str:
+        """Return the current date and time for context awareness.
+
+        Use this tool at the start of any interaction to know the current date/time.
+        This helps you understand what "today" is when analyzing transits or other
+        time-sensitive astrological information.
+
+        Returns:
+            JSON with current datetime, date components, and time components
+        """
+        return json.dumps(get_current_datetime(), indent=2)
+
     # Register tools with MCPServer
     mcp.add_tool(list_house_systems, name="list_house_systems")
     mcp.add_tool(list_chart_objects, name="list_chart_objects")
+    mcp.add_tool(get_current_datetime_tool, name="get_current_datetime")
 
 
 # Register all tools
