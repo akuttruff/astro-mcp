@@ -1,0 +1,2452 @@
+{
+  "type": "Natal",
+  "native": {
+    "date_time": {
+      "datetime": "2000-03-20 09:00:00+00:00",
+      "timezone": "Europe/London",
+      "ambiguous": false,
+      "julian": 2451623.875,
+      "deltat": 0.0007394925884025638,
+      "sidereal_time": "20:52:17"
+    },
+    "coordinates": {
+      "latitude": {
+        "raw": 51.51,
+        "formatted": "51N30.6",
+        "direction": "+",
+        "degrees": 51,
+        "minutes": 30,
+        "seconds": 36
+      },
+      "longitude": {
+        "raw": -0.13,
+        "formatted": "0W7.8",
+        "direction": "-",
+        "degrees": 0,
+        "minutes": 7,
+        "seconds": 48
+      }
+    }
+  },
+  "house_system": "Whole Sign",
+  "shape": "Locomotive",
+  "aspect_patterns": {
+    "t_square": [],
+    "grand_trine": [],
+    "yod": [],
+    "grand_cross": [],
+    "kite": [],
+    "mystic_rectangle": [],
+    "cradle": [],
+    "grand_sextile": [],
+    "grand_quintile": []
+  },
+  "diurnal": true,
+  "moon_phase": {
+    "new_moon": false,
+    "waxing_crescent": false,
+    "first_quarter": false,
+    "waxing_gibbous": false,
+    "full_moon": true,
+    "disseminating": false,
+    "third_quarter": false,
+    "balsamic": false,
+    "formatted": "Full"
+  },
+  "objects": {
+    "3000001": {
+      "index": 3000001,
+      "name": "Asc",
+      "type": {
+        "index": 3000000,
+        "name": "Angle"
+      },
+      "longitude": {
+        "raw": 76.01949754345092,
+        "formatted": "76\u00b001'10\"",
+        "direction": "+",
+        "degrees": 76,
+        "minutes": 1,
+        "seconds": 10
+      },
+      "sign_longitude": {
+        "raw": 16.019497543450925,
+        "formatted": "16\u00b001'10\"",
+        "direction": "+",
+        "degrees": 16,
+        "minutes": 1,
+        "seconds": 10
+      },
+      "sign": {
+        "number": 3,
+        "name": "Gemini",
+        "element": "Air",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 2,
+        "name": "2nd Decan"
+      },
+      "house": {
+        "index": 2000001,
+        "number": 1,
+        "name": "1st House"
+      },
+      "speed": 402.40048787023454,
+      "declination": {
+        "raw": 22.704363795989046,
+        "formatted": "22\u00b042'16\"",
+        "direction": "+",
+        "degrees": 22,
+        "minutes": 42,
+        "seconds": 16
+      }
+    },
+    "3000002": {
+      "index": 3000002,
+      "name": "Desc",
+      "type": {
+        "index": 3000000,
+        "name": "Angle"
+      },
+      "longitude": {
+        "raw": 256.01949754345094,
+        "formatted": "256\u00b001'10\"",
+        "direction": "+",
+        "degrees": 256,
+        "minutes": 1,
+        "seconds": 10
+      },
+      "sign_longitude": {
+        "raw": 16.01949754345094,
+        "formatted": "16\u00b001'10\"",
+        "direction": "+",
+        "degrees": 16,
+        "minutes": 1,
+        "seconds": 10
+      },
+      "sign": {
+        "number": 9,
+        "name": "Sagittarius",
+        "element": "Fire",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 2,
+        "name": "2nd Decan"
+      },
+      "house": {
+        "index": 2000007,
+        "number": 7,
+        "name": "7th House"
+      },
+      "speed": 402.40048787023454,
+      "declination": {
+        "raw": -22.704363795989046,
+        "formatted": "-22\u00b042'16\"",
+        "direction": "-",
+        "degrees": 22,
+        "minutes": 42,
+        "seconds": 16
+      }
+    },
+    "3000003": {
+      "index": 3000003,
+      "name": "MC",
+      "type": {
+        "index": 3000000,
+        "name": "Angle"
+      },
+      "longitude": {
+        "raw": 310.618552231808,
+        "formatted": "310\u00b037'07\"",
+        "direction": "+",
+        "degrees": 310,
+        "minutes": 37,
+        "seconds": 7
+      },
+      "sign_longitude": {
+        "raw": 10.618552231807996,
+        "formatted": "10\u00b037'07\"",
+        "direction": "+",
+        "degrees": 10,
+        "minutes": 37,
+        "seconds": 7
+      },
+      "sign": {
+        "number": 11,
+        "name": "Aquarius",
+        "element": "Air",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 2,
+        "name": "2nd Decan"
+      },
+      "house": {
+        "index": 2000009,
+        "number": 9,
+        "name": "9th House"
+      },
+      "speed": 357.58328681918704,
+      "declination": {
+        "raw": -17.573136513761792,
+        "formatted": "-17\u00b034'23\"",
+        "direction": "-",
+        "degrees": 17,
+        "minutes": 34,
+        "seconds": 23
+      }
+    },
+    "3000004": {
+      "index": 3000004,
+      "name": "IC",
+      "type": {
+        "index": 3000000,
+        "name": "Angle"
+      },
+      "longitude": {
+        "raw": 130.618552231808,
+        "formatted": "130\u00b037'07\"",
+        "direction": "+",
+        "degrees": 130,
+        "minutes": 37,
+        "seconds": 7
+      },
+      "sign_longitude": {
+        "raw": 10.618552231807996,
+        "formatted": "10\u00b037'07\"",
+        "direction": "+",
+        "degrees": 10,
+        "minutes": 37,
+        "seconds": 7
+      },
+      "sign": {
+        "number": 5,
+        "name": "Leo",
+        "element": "Fire",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 2,
+        "name": "2nd Decan"
+      },
+      "house": {
+        "index": 2000003,
+        "number": 3,
+        "name": "3rd House"
+      },
+      "speed": 357.58328681918704,
+      "declination": {
+        "raw": 17.573136513761792,
+        "formatted": "17\u00b034'23\"",
+        "direction": "+",
+        "degrees": 17,
+        "minutes": 34,
+        "seconds": 23
+      }
+    },
+    "6000003": {
+      "index": 6000003,
+      "name": "True North Node",
+      "type": {
+        "index": 6000000,
+        "name": "Point"
+      },
+      "latitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "longitude": {
+        "raw": 122.11263810517045,
+        "formatted": "122\u00b006'45\"",
+        "direction": "+",
+        "degrees": 122,
+        "minutes": 6,
+        "seconds": 45
+      },
+      "sign_longitude": {
+        "raw": 2.112638105170447,
+        "formatted": "02\u00b006'45\"",
+        "direction": "+",
+        "degrees": 2,
+        "minutes": 6,
+        "seconds": 45
+      },
+      "sign": {
+        "number": 5,
+        "name": "Leo",
+        "element": "Fire",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "house": {
+        "index": 2000003,
+        "number": 3,
+        "name": "3rd House"
+      },
+      "speed": -0.15940332332384094,
+      "movement": {
+        "direct": false,
+        "stationary": false,
+        "retrograde": true,
+        "typical": true,
+        "formatted": "Retrograde"
+      },
+      "declination": {
+        "raw": 19.68833016495178,
+        "formatted": "19\u00b041'18\"",
+        "direction": "+",
+        "degrees": 19,
+        "minutes": 41,
+        "seconds": 18
+      },
+      "out_of_bounds": false
+    },
+    "6000004": {
+      "index": 6000004,
+      "name": "True South Node",
+      "type": {
+        "index": 6000000,
+        "name": "Point"
+      },
+      "latitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "longitude": {
+        "raw": 302.11263810517045,
+        "formatted": "302\u00b006'45\"",
+        "direction": "+",
+        "degrees": 302,
+        "minutes": 6,
+        "seconds": 45
+      },
+      "sign_longitude": {
+        "raw": 2.112638105170447,
+        "formatted": "02\u00b006'45\"",
+        "direction": "+",
+        "degrees": 2,
+        "minutes": 6,
+        "seconds": 45
+      },
+      "sign": {
+        "number": 11,
+        "name": "Aquarius",
+        "element": "Air",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "house": {
+        "index": 2000009,
+        "number": 9,
+        "name": "9th House"
+      },
+      "speed": -0.15940332332384094,
+      "movement": {
+        "direct": false,
+        "stationary": false,
+        "retrograde": true,
+        "typical": true,
+        "formatted": "Retrograde"
+      },
+      "declination": {
+        "raw": -19.688330164951786,
+        "formatted": "-19\u00b041'18\"",
+        "direction": "-",
+        "degrees": 19,
+        "minutes": 41,
+        "seconds": 18
+      },
+      "out_of_bounds": false
+    },
+    "6000005": {
+      "index": 6000005,
+      "name": "Vertex",
+      "type": {
+        "index": 6000000,
+        "name": "Point"
+      },
+      "longitude": {
+        "raw": 214.69161618354133,
+        "formatted": "214\u00b041'30\"",
+        "direction": "+",
+        "degrees": 214,
+        "minutes": 41,
+        "seconds": 30
+      },
+      "sign_longitude": {
+        "raw": 4.691616183541328,
+        "formatted": "04\u00b041'30\"",
+        "direction": "+",
+        "degrees": 4,
+        "minutes": 41,
+        "seconds": 30
+      },
+      "sign": {
+        "number": 8,
+        "name": "Scorpio",
+        "element": "Water",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "house": {
+        "index": 2000006,
+        "number": 6,
+        "name": "6th House"
+      },
+      "speed": 288.0069194066087,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": -13.084513251396636,
+        "formatted": "-13\u00b005'04\"",
+        "direction": "-",
+        "degrees": 13,
+        "minutes": 5,
+        "seconds": 4
+      },
+      "out_of_bounds": false
+    },
+    "6000010": {
+      "index": 6000010,
+      "name": "Part of Fortune",
+      "type": {
+        "index": 6000000,
+        "name": "Point"
+      },
+      "latitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "longitude": {
+        "raw": 258.2493128707195,
+        "formatted": "258\u00b014'58\"",
+        "direction": "+",
+        "degrees": 258,
+        "minutes": 14,
+        "seconds": 58
+      },
+      "sign_longitude": {
+        "raw": 18.249312870719507,
+        "formatted": "18\u00b014'58\"",
+        "direction": "+",
+        "degrees": 18,
+        "minutes": 14,
+        "seconds": 58
+      },
+      "sign": {
+        "number": 9,
+        "name": "Sagittarius",
+        "element": "Fire",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 2,
+        "name": "2nd Decan"
+      },
+      "house": {
+        "index": 2000007,
+        "number": 7,
+        "name": "7th House"
+      },
+      "speed": 0.0,
+      "movement": {
+        "direct": false,
+        "stationary": true,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Stationary"
+      },
+      "declination": {
+        "raw": -22.918595153838737,
+        "formatted": "-22\u00b055'07\"",
+        "direction": "-",
+        "degrees": 22,
+        "minutes": 55,
+        "seconds": 7
+      },
+      "out_of_bounds": false
+    },
+    "6000007": {
+      "index": 6000007,
+      "name": "True Lilith",
+      "type": {
+        "index": 6000000,
+        "name": "Point"
+      },
+      "latitude": {
+        "raw": 1.0313530638832276,
+        "formatted": "01\u00b001'53\"",
+        "direction": "+",
+        "degrees": 1,
+        "minutes": 1,
+        "seconds": 53
+      },
+      "longitude": {
+        "raw": 290.4289639141697,
+        "formatted": "290\u00b025'44\"",
+        "direction": "+",
+        "degrees": 290,
+        "minutes": 25,
+        "seconds": 44
+      },
+      "sign_longitude": {
+        "raw": 20.428963914169685,
+        "formatted": "20\u00b025'44\"",
+        "direction": "+",
+        "degrees": 20,
+        "minutes": 25,
+        "seconds": 44
+      },
+      "sign": {
+        "number": 10,
+        "name": "Capricorn",
+        "element": "Earth",
+        "modality": "Cardinal"
+      },
+      "decan": {
+        "number": 3,
+        "name": "3rd Decan"
+      },
+      "house": {
+        "index": 2000008,
+        "number": 8,
+        "name": "8th House"
+      },
+      "speed": -1.3074846968539755,
+      "movement": {
+        "direct": false,
+        "stationary": false,
+        "retrograde": true,
+        "typical": false,
+        "formatted": "Retrograde"
+      },
+      "declination": {
+        "raw": -20.864994080813695,
+        "formatted": "-20\u00b051'54\"",
+        "direction": "-",
+        "degrees": 20,
+        "minutes": 51,
+        "seconds": 54
+      },
+      "out_of_bounds": false
+    },
+    "4000001": {
+      "index": 4000001,
+      "name": "Sun",
+      "type": {
+        "index": 4000000,
+        "name": "Planet"
+      },
+      "latitude": {
+        "raw": 6.872100124872653e-05,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "longitude": {
+        "raw": 0.058446814012745735,
+        "formatted": "00\u00b003'30\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 3,
+        "seconds": 30
+      },
+      "sign_longitude": {
+        "raw": 0.058446814012745735,
+        "formatted": "00\u00b003'30\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 3,
+        "seconds": 30
+      },
+      "sign": {
+        "number": 1,
+        "name": "Aries",
+        "element": "Fire",
+        "modality": "Cardinal"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "house": {
+        "index": 2000011,
+        "number": 11,
+        "name": "11th House"
+      },
+      "distance": 0.9959775469033998,
+      "speed": 0.9929948500464891,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": 0.023310777064021397,
+        "formatted": "00\u00b001'24\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 1,
+        "seconds": 24
+      },
+      "out_of_bounds": false,
+      "in_sect": true,
+      "dignities": {
+        "ruler": false,
+        "exalted": true,
+        "triplicity_ruler": true,
+        "term_ruler": false,
+        "face_ruler": false,
+        "mutual_reception_ruler": false,
+        "mutual_reception_exalted": false,
+        "mutual_reception_triplicity_ruler": false,
+        "mutual_reception_term_ruler": false,
+        "mutual_reception_face_ruler": false,
+        "detriment": false,
+        "fall": false,
+        "peregrine": false,
+        "formatted": [
+          "Exalted",
+          "Triplicity Ruler",
+          "In rulership element"
+        ]
+      },
+      "score": 7
+    },
+    "4000002": {
+      "index": 4000002,
+      "name": "Moon",
+      "type": {
+        "index": 4000000,
+        "name": "Planet"
+      },
+      "latitude": {
+        "raw": 4.410107252825607,
+        "formatted": "04\u00b024'36\"",
+        "direction": "+",
+        "degrees": 4,
+        "minutes": 24,
+        "seconds": 36
+      },
+      "longitude": {
+        "raw": 182.28826214128136,
+        "formatted": "182\u00b017'18\"",
+        "direction": "+",
+        "degrees": 182,
+        "minutes": 17,
+        "seconds": 18
+      },
+      "sign_longitude": {
+        "raw": 2.288262141281365,
+        "formatted": "02\u00b017'18\"",
+        "direction": "+",
+        "degrees": 2,
+        "minutes": 17,
+        "seconds": 18
+      },
+      "sign": {
+        "number": 7,
+        "name": "Libra",
+        "element": "Air",
+        "modality": "Cardinal"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "house": {
+        "index": 2000005,
+        "number": 5,
+        "name": "5th House"
+      },
+      "distance": 0.002542610708749392,
+      "speed": 13.529786768701658,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": 3.1365616633138766,
+        "formatted": "03\u00b008'12\"",
+        "direction": "+",
+        "degrees": 3,
+        "minutes": 8,
+        "seconds": 12
+      },
+      "out_of_bounds": false,
+      "in_sect": false,
+      "dignities": {
+        "ruler": false,
+        "exalted": false,
+        "triplicity_ruler": false,
+        "term_ruler": false,
+        "face_ruler": true,
+        "mutual_reception_ruler": false,
+        "mutual_reception_exalted": true,
+        "mutual_reception_triplicity_ruler": false,
+        "mutual_reception_term_ruler": false,
+        "mutual_reception_face_ruler": false,
+        "detriment": false,
+        "fall": false,
+        "peregrine": false,
+        "formatted": [
+          "Face Ruler",
+          "Exalted by mutual reception"
+        ]
+      },
+      "score": 5
+    },
+    "4000003": {
+      "index": 4000003,
+      "name": "Mercury",
+      "type": {
+        "index": 4000000,
+        "name": "Planet"
+      },
+      "latitude": {
+        "raw": 0.005337270627476799,
+        "formatted": "00\u00b000'19\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 19
+      },
+      "longitude": {
+        "raw": 334.19695171125704,
+        "formatted": "334\u00b011'49\"",
+        "direction": "+",
+        "degrees": 334,
+        "minutes": 11,
+        "seconds": 49
+      },
+      "sign_longitude": {
+        "raw": 4.196951711257043,
+        "formatted": "04\u00b011'49\"",
+        "direction": "+",
+        "degrees": 4,
+        "minutes": 11,
+        "seconds": 49
+      },
+      "sign": {
+        "number": 12,
+        "name": "Pisces",
+        "element": "Water",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "house": {
+        "index": 2000010,
+        "number": 10,
+        "name": "10th House"
+      },
+      "distance": 0.772093712370414,
+      "speed": 0.4904684929144744,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": -9.965231918548916,
+        "formatted": "-09\u00b057'55\"",
+        "direction": "-",
+        "degrees": 9,
+        "minutes": 57,
+        "seconds": 55
+      },
+      "out_of_bounds": false,
+      "in_sect": true,
+      "dignities": {
+        "ruler": false,
+        "exalted": false,
+        "triplicity_ruler": false,
+        "term_ruler": false,
+        "face_ruler": false,
+        "mutual_reception_ruler": false,
+        "mutual_reception_exalted": false,
+        "mutual_reception_triplicity_ruler": false,
+        "mutual_reception_term_ruler": false,
+        "mutual_reception_face_ruler": false,
+        "detriment": true,
+        "fall": true,
+        "peregrine": true,
+        "formatted": [
+          "Detriment",
+          "Fall",
+          "Peregrine"
+        ]
+      },
+      "score": -14
+    },
+    "4000004": {
+      "index": 4000004,
+      "name": "Venus",
+      "type": {
+        "index": 4000000,
+        "name": "Planet"
+      },
+      "latitude": {
+        "raw": -1.2464855641173034,
+        "formatted": "-01\u00b014'47\"",
+        "direction": "-",
+        "degrees": 1,
+        "minutes": 14,
+        "seconds": 47
+      },
+      "longitude": {
+        "raw": 338.5132292384534,
+        "formatted": "338\u00b030'48\"",
+        "direction": "+",
+        "degrees": 338,
+        "minutes": 30,
+        "seconds": 48
+      },
+      "sign_longitude": {
+        "raw": 8.513229238453391,
+        "formatted": "08\u00b030'48\"",
+        "direction": "+",
+        "degrees": 8,
+        "minutes": 30,
+        "seconds": 48
+      },
+      "sign": {
+        "number": 12,
+        "name": "Pisces",
+        "element": "Water",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "house": {
+        "index": 2000010,
+        "number": 10,
+        "name": "10th House"
+      },
+      "distance": 1.5555301103276502,
+      "speed": 1.235118158994788,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": -9.533125771465658,
+        "formatted": "-09\u00b031'59\"",
+        "direction": "-",
+        "degrees": 9,
+        "minutes": 31,
+        "seconds": 59
+      },
+      "out_of_bounds": false,
+      "in_sect": false,
+      "dignities": {
+        "ruler": false,
+        "exalted": true,
+        "triplicity_ruler": true,
+        "term_ruler": true,
+        "face_ruler": false,
+        "mutual_reception_ruler": false,
+        "mutual_reception_exalted": false,
+        "mutual_reception_triplicity_ruler": false,
+        "mutual_reception_term_ruler": false,
+        "mutual_reception_face_ruler": false,
+        "detriment": false,
+        "fall": false,
+        "peregrine": false,
+        "formatted": [
+          "Exalted",
+          "Triplicity Ruler",
+          "Term Ruler"
+        ]
+      },
+      "score": 9
+    },
+    "4000006": {
+      "index": 4000006,
+      "name": "Mars",
+      "type": {
+        "index": 4000000,
+        "name": "Planet"
+      },
+      "latitude": {
+        "raw": -0.06126142181198876,
+        "formatted": "-00\u00b003'41\"",
+        "direction": "-",
+        "degrees": 0,
+        "minutes": 3,
+        "seconds": 41
+      },
+      "longitude": {
+        "raw": 28.024217930422772,
+        "formatted": "28\u00b001'27\"",
+        "direction": "+",
+        "degrees": 28,
+        "minutes": 1,
+        "seconds": 27
+      },
+      "sign_longitude": {
+        "raw": 28.024217930422772,
+        "formatted": "28\u00b001'27\"",
+        "direction": "+",
+        "degrees": 28,
+        "minutes": 1,
+        "seconds": 27
+      },
+      "sign": {
+        "number": 1,
+        "name": "Aries",
+        "element": "Fire",
+        "modality": "Cardinal"
+      },
+      "decan": {
+        "number": 3,
+        "name": "3rd Decan"
+      },
+      "house": {
+        "index": 2000011,
+        "number": 11,
+        "name": "11th House"
+      },
+      "distance": 2.268095433260223,
+      "speed": 0.7371068417525809,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": 10.713826697456835,
+        "formatted": "10\u00b042'50\"",
+        "direction": "+",
+        "degrees": 10,
+        "minutes": 42,
+        "seconds": 50
+      },
+      "out_of_bounds": false,
+      "in_sect": false,
+      "dignities": {
+        "ruler": true,
+        "exalted": false,
+        "triplicity_ruler": false,
+        "term_ruler": false,
+        "face_ruler": false,
+        "mutual_reception_ruler": false,
+        "mutual_reception_exalted": false,
+        "mutual_reception_triplicity_ruler": false,
+        "mutual_reception_term_ruler": false,
+        "mutual_reception_face_ruler": false,
+        "detriment": false,
+        "fall": false,
+        "peregrine": false,
+        "formatted": [
+          "Ruler",
+          "In rulership element"
+        ]
+      },
+      "score": 5
+    },
+    "4000007": {
+      "index": 4000007,
+      "name": "Jupiter",
+      "type": {
+        "index": 4000000,
+        "name": "Planet"
+      },
+      "latitude": {
+        "raw": -0.9488346194077284,
+        "formatted": "-00\u00b056'56\"",
+        "direction": "-",
+        "degrees": 0,
+        "minutes": 56,
+        "seconds": 56
+      },
+      "longitude": {
+        "raw": 36.612825235295574,
+        "formatted": "36\u00b036'46\"",
+        "direction": "+",
+        "degrees": 36,
+        "minutes": 36,
+        "seconds": 46
+      },
+      "sign_longitude": {
+        "raw": 6.612825235295574,
+        "formatted": "06\u00b036'46\"",
+        "direction": "+",
+        "degrees": 6,
+        "minutes": 36,
+        "seconds": 46
+      },
+      "sign": {
+        "number": 2,
+        "name": "Taurus",
+        "element": "Earth",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "house": {
+        "index": 2000012,
+        "number": 12,
+        "name": "12th House"
+      },
+      "distance": 5.741821557522821,
+      "speed": 0.21493761782345067,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": 12.826493386570712,
+        "formatted": "12\u00b049'35\"",
+        "direction": "+",
+        "degrees": 12,
+        "minutes": 49,
+        "seconds": 35
+      },
+      "out_of_bounds": false,
+      "in_sect": true,
+      "dignities": {
+        "ruler": false,
+        "exalted": false,
+        "triplicity_ruler": false,
+        "term_ruler": false,
+        "face_ruler": false,
+        "mutual_reception_ruler": false,
+        "mutual_reception_exalted": false,
+        "mutual_reception_triplicity_ruler": false,
+        "mutual_reception_term_ruler": false,
+        "mutual_reception_face_ruler": false,
+        "detriment": false,
+        "fall": false,
+        "peregrine": true,
+        "formatted": [
+          "Peregrine"
+        ]
+      },
+      "score": -5
+    },
+    "4000008": {
+      "index": 4000008,
+      "name": "Saturn",
+      "type": {
+        "index": 4000000,
+        "name": "Planet"
+      },
+      "latitude": {
+        "raw": -2.096652146646016,
+        "formatted": "-02\u00b005'48\"",
+        "direction": "-",
+        "degrees": 2,
+        "minutes": 5,
+        "seconds": 48
+      },
+      "longitude": {
+        "raw": 44.2265081247137,
+        "formatted": "44\u00b013'35\"",
+        "direction": "+",
+        "degrees": 44,
+        "minutes": 13,
+        "seconds": 35
+      },
+      "sign_longitude": {
+        "raw": 14.226508124713703,
+        "formatted": "14\u00b013'35\"",
+        "direction": "+",
+        "degrees": 14,
+        "minutes": 13,
+        "seconds": 35
+      },
+      "sign": {
+        "number": 2,
+        "name": "Taurus",
+        "element": "Earth",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 2,
+        "name": "2nd Decan"
+      },
+      "house": {
+        "index": 2000012,
+        "number": 12,
+        "name": "12th House"
+      },
+      "distance": 9.854860049623571,
+      "speed": 0.10438771779041409,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": 14.104016277947789,
+        "formatted": "14\u00b006'14\"",
+        "direction": "+",
+        "degrees": 14,
+        "minutes": 6,
+        "seconds": 14
+      },
+      "out_of_bounds": false,
+      "in_sect": true,
+      "dignities": {
+        "ruler": false,
+        "exalted": false,
+        "triplicity_ruler": false,
+        "term_ruler": false,
+        "face_ruler": false,
+        "mutual_reception_ruler": false,
+        "mutual_reception_exalted": true,
+        "mutual_reception_triplicity_ruler": false,
+        "mutual_reception_term_ruler": false,
+        "mutual_reception_face_ruler": false,
+        "detriment": false,
+        "fall": false,
+        "peregrine": false,
+        "formatted": [
+          "Exalted by mutual reception",
+          "In rulership element"
+        ]
+      },
+      "score": 4
+    },
+    "4000009": {
+      "index": 4000009,
+      "name": "Uranus",
+      "type": {
+        "index": 4000000,
+        "name": "Planet"
+      },
+      "latitude": {
+        "raw": -0.66532287493287,
+        "formatted": "-00\u00b039'55\"",
+        "direction": "-",
+        "degrees": 0,
+        "minutes": 39,
+        "seconds": 55
+      },
+      "longitude": {
+        "raw": 319.14502962144894,
+        "formatted": "319\u00b008'42\"",
+        "direction": "+",
+        "degrees": 319,
+        "minutes": 8,
+        "seconds": 42
+      },
+      "sign_longitude": {
+        "raw": 19.14502962144894,
+        "formatted": "19\u00b008'42\"",
+        "direction": "+",
+        "degrees": 19,
+        "minutes": 8,
+        "seconds": 42
+      },
+      "sign": {
+        "number": 11,
+        "name": "Aquarius",
+        "element": "Air",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 2,
+        "name": "2nd Decan"
+      },
+      "house": {
+        "index": 2000009,
+        "number": 9,
+        "name": "9th House"
+      },
+      "distance": 20.6735506974393,
+      "speed": 0.04718244820283825,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": -15.713584229599295,
+        "formatted": "-15\u00b042'49\"",
+        "direction": "-",
+        "degrees": 15,
+        "minutes": 42,
+        "seconds": 49
+      },
+      "out_of_bounds": false,
+      "dignities": {
+        "ruler": true,
+        "exalted": false,
+        "triplicity_ruler": false,
+        "term_ruler": false,
+        "face_ruler": false,
+        "mutual_reception_ruler": false,
+        "mutual_reception_exalted": false,
+        "mutual_reception_triplicity_ruler": false,
+        "mutual_reception_term_ruler": false,
+        "mutual_reception_face_ruler": false,
+        "detriment": false,
+        "fall": false,
+        "peregrine": false,
+        "formatted": [
+          "Ruler",
+          "In rulership element"
+        ]
+      },
+      "score": 5
+    },
+    "4000010": {
+      "index": 4000010,
+      "name": "Neptune",
+      "type": {
+        "index": 4000000,
+        "name": "Planet"
+      },
+      "latitude": {
+        "raw": 0.22336538407427073,
+        "formatted": "00\u00b013'24\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 13,
+        "seconds": 24
+      },
+      "longitude": {
+        "raw": 305.92882285366665,
+        "formatted": "305\u00b055'44\"",
+        "direction": "+",
+        "degrees": 305,
+        "minutes": 55,
+        "seconds": 44
+      },
+      "sign_longitude": {
+        "raw": 5.928822853666645,
+        "formatted": "05\u00b055'44\"",
+        "direction": "+",
+        "degrees": 5,
+        "minutes": 55,
+        "seconds": 44
+      },
+      "sign": {
+        "number": 11,
+        "name": "Aquarius",
+        "element": "Air",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "house": {
+        "index": 2000009,
+        "number": 9,
+        "name": "9th House"
+      },
+      "distance": 30.69056212400076,
+      "speed": 0.025224424764960132,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": -18.572508278616382,
+        "formatted": "-18\u00b034'21\"",
+        "direction": "-",
+        "degrees": 18,
+        "minutes": 34,
+        "seconds": 21
+      },
+      "out_of_bounds": false,
+      "dignities": {
+        "ruler": false,
+        "exalted": false,
+        "triplicity_ruler": false,
+        "term_ruler": false,
+        "face_ruler": false,
+        "mutual_reception_ruler": false,
+        "mutual_reception_exalted": false,
+        "mutual_reception_triplicity_ruler": false,
+        "mutual_reception_term_ruler": false,
+        "mutual_reception_face_ruler": false,
+        "detriment": false,
+        "fall": true,
+        "peregrine": true,
+        "formatted": [
+          "Fall",
+          "Peregrine"
+        ]
+      },
+      "score": -9
+    },
+    "4000011": {
+      "index": 4000011,
+      "name": "Pluto",
+      "type": {
+        "index": 4000000,
+        "name": "Planet"
+      },
+      "latitude": {
+        "raw": 11.156382038820599,
+        "formatted": "11\u00b009'23\"",
+        "direction": "+",
+        "degrees": 11,
+        "minutes": 9,
+        "seconds": 23
+      },
+      "longitude": {
+        "raw": 252.8952428155778,
+        "formatted": "252\u00b053'43\"",
+        "direction": "+",
+        "degrees": 252,
+        "minutes": 53,
+        "seconds": 43
+      },
+      "sign_longitude": {
+        "raw": 12.895242815577802,
+        "formatted": "12\u00b053'43\"",
+        "direction": "+",
+        "degrees": 12,
+        "minutes": 53,
+        "seconds": 43
+      },
+      "sign": {
+        "number": 9,
+        "name": "Sagittarius",
+        "element": "Fire",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 2,
+        "name": "2nd Decan"
+      },
+      "house": {
+        "index": 2000007,
+        "number": 7,
+        "name": "7th House"
+      },
+      "distance": 29.94322152700486,
+      "speed": -0.0027953379341391542,
+      "movement": {
+        "direct": false,
+        "stationary": false,
+        "retrograde": true,
+        "typical": false,
+        "formatted": "Retrograde"
+      },
+      "declination": {
+        "raw": -11.27149937638435,
+        "formatted": "-11\u00b016'17\"",
+        "direction": "-",
+        "degrees": 11,
+        "minutes": 16,
+        "seconds": 17
+      },
+      "out_of_bounds": false,
+      "dignities": {
+        "ruler": false,
+        "exalted": false,
+        "triplicity_ruler": false,
+        "term_ruler": false,
+        "face_ruler": false,
+        "mutual_reception_ruler": false,
+        "mutual_reception_exalted": false,
+        "mutual_reception_triplicity_ruler": false,
+        "mutual_reception_term_ruler": false,
+        "mutual_reception_face_ruler": false,
+        "detriment": false,
+        "fall": false,
+        "peregrine": true,
+        "formatted": [
+          "Peregrine"
+        ]
+      },
+      "score": -5
+    },
+    "5000001": {
+      "index": 5000001,
+      "name": "Chiron",
+      "type": {
+        "index": 5000000,
+        "name": "Asteroid"
+      },
+      "latitude": {
+        "raw": 4.802544583429601,
+        "formatted": "04\u00b048'09\"",
+        "direction": "+",
+        "degrees": 4,
+        "minutes": 48,
+        "seconds": 9
+      },
+      "longitude": {
+        "raw": 257.19046714614865,
+        "formatted": "257\u00b011'26\"",
+        "direction": "+",
+        "degrees": 257,
+        "minutes": 11,
+        "seconds": 26
+      },
+      "sign_longitude": {
+        "raw": 17.19046714614865,
+        "formatted": "17\u00b011'26\"",
+        "direction": "+",
+        "degrees": 17,
+        "minutes": 11,
+        "seconds": 26
+      },
+      "sign": {
+        "number": 9,
+        "name": "Sagittarius",
+        "element": "Fire",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 2,
+        "name": "2nd Decan"
+      },
+      "house": {
+        "index": 2000007,
+        "number": 7,
+        "name": "7th House"
+      },
+      "distance": 9.67959045233181,
+      "speed": 0.012646295538920826,
+      "movement": {
+        "direct": true,
+        "stationary": false,
+        "retrograde": false,
+        "typical": true,
+        "formatted": "Direct"
+      },
+      "declination": {
+        "raw": -18.040162214465337,
+        "formatted": "-18\u00b002'25\"",
+        "direction": "-",
+        "degrees": 18,
+        "minutes": 2,
+        "seconds": 25
+      },
+      "out_of_bounds": false
+    }
+  },
+  "houses": {
+    "2000001": {
+      "index": 2000001,
+      "number": 1,
+      "name": "1st House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 60.0,
+        "formatted": "60\u00b000'00\"",
+        "direction": "+",
+        "degrees": 60,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 3,
+        "name": "Gemini",
+        "element": "Air",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 402.40048787023454,
+      "declination": {
+        "raw": 20.14939417491561,
+        "formatted": "20\u00b008'58\"",
+        "direction": "+",
+        "degrees": 20,
+        "minutes": 8,
+        "seconds": 58
+      },
+      "size": 30.0
+    },
+    "2000002": {
+      "index": 2000002,
+      "number": 2,
+      "name": "2nd House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 90.0,
+        "formatted": "90\u00b000'00\"",
+        "direction": "+",
+        "degrees": 90,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 4,
+        "name": "Cancer",
+        "element": "Water",
+        "modality": "Cardinal"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 0.0,
+      "declination": {
+        "raw": 23.43813947804904,
+        "formatted": "23\u00b026'17\"",
+        "direction": "+",
+        "degrees": 23,
+        "minutes": 26,
+        "seconds": 17
+      },
+      "size": 30.0
+    },
+    "2000003": {
+      "index": 2000003,
+      "number": 3,
+      "name": "3rd House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 120.0,
+        "formatted": "120\u00b000'00\"",
+        "direction": "+",
+        "degrees": 120,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 5,
+        "name": "Leo",
+        "element": "Fire",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 0.0,
+      "declination": {
+        "raw": 20.14939417491561,
+        "formatted": "20\u00b008'58\"",
+        "direction": "+",
+        "degrees": 20,
+        "minutes": 8,
+        "seconds": 58
+      },
+      "size": 30.0
+    },
+    "2000004": {
+      "index": 2000004,
+      "number": 4,
+      "name": "4th House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 150.0,
+        "formatted": "150\u00b000'00\"",
+        "direction": "+",
+        "degrees": 150,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 6,
+        "name": "Virgo",
+        "element": "Earth",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 357.58328681918704,
+      "declination": {
+        "raw": 11.471434553547809,
+        "formatted": "11\u00b028'17\"",
+        "direction": "+",
+        "degrees": 11,
+        "minutes": 28,
+        "seconds": 17
+      },
+      "size": 30.0
+    },
+    "2000005": {
+      "index": 2000005,
+      "number": 5,
+      "name": "5th House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 180.0,
+        "formatted": "180\u00b000'00\"",
+        "direction": "+",
+        "degrees": 180,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 7,
+        "name": "Libra",
+        "element": "Air",
+        "modality": "Cardinal"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 0.0,
+      "declination": {
+        "raw": 2.790957271699844e-15,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "size": 30.0
+    },
+    "2000006": {
+      "index": 2000006,
+      "number": 6,
+      "name": "6th House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 210.0,
+        "formatted": "210\u00b000'00\"",
+        "direction": "+",
+        "degrees": 210,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 8,
+        "name": "Scorpio",
+        "element": "Water",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 0.0,
+      "declination": {
+        "raw": -11.471434553547814,
+        "formatted": "-11\u00b028'17\"",
+        "direction": "-",
+        "degrees": 11,
+        "minutes": 28,
+        "seconds": 17
+      },
+      "size": 30.0
+    },
+    "2000007": {
+      "index": 2000007,
+      "number": 7,
+      "name": "7th House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 240.0,
+        "formatted": "240\u00b000'00\"",
+        "direction": "+",
+        "degrees": 240,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 9,
+        "name": "Sagittarius",
+        "element": "Fire",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 402.40048787023454,
+      "declination": {
+        "raw": -20.1493941749156,
+        "formatted": "-20\u00b008'58\"",
+        "direction": "-",
+        "degrees": 20,
+        "minutes": 8,
+        "seconds": 58
+      },
+      "size": 30.0
+    },
+    "2000008": {
+      "index": 2000008,
+      "number": 8,
+      "name": "8th House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 270.0,
+        "formatted": "270\u00b000'00\"",
+        "direction": "+",
+        "degrees": 270,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 10,
+        "name": "Capricorn",
+        "element": "Earth",
+        "modality": "Cardinal"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 0.0,
+      "declination": {
+        "raw": -23.43813947804904,
+        "formatted": "-23\u00b026'17\"",
+        "direction": "-",
+        "degrees": 23,
+        "minutes": 26,
+        "seconds": 17
+      },
+      "size": 30.0
+    },
+    "2000009": {
+      "index": 2000009,
+      "number": 9,
+      "name": "9th House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 300.0,
+        "formatted": "300\u00b000'00\"",
+        "direction": "+",
+        "degrees": 300,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 11,
+        "name": "Aquarius",
+        "element": "Air",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 0.0,
+      "declination": {
+        "raw": -20.14939417491561,
+        "formatted": "-20\u00b008'58\"",
+        "direction": "-",
+        "degrees": 20,
+        "minutes": 8,
+        "seconds": 58
+      },
+      "size": 30.0
+    },
+    "2000010": {
+      "index": 2000010,
+      "number": 10,
+      "name": "10th House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 330.0,
+        "formatted": "330\u00b000'00\"",
+        "direction": "+",
+        "degrees": 330,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 12,
+        "name": "Pisces",
+        "element": "Water",
+        "modality": "Mutable"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 357.58328681918704,
+      "declination": {
+        "raw": -11.471434553547821,
+        "formatted": "-11\u00b028'17\"",
+        "direction": "-",
+        "degrees": 11,
+        "minutes": 28,
+        "seconds": 17
+      },
+      "size": 30.0
+    },
+    "2000011": {
+      "index": 2000011,
+      "number": 11,
+      "name": "11th House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 1,
+        "name": "Aries",
+        "element": "Fire",
+        "modality": "Cardinal"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 0.0,
+      "declination": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "size": 30.0
+    },
+    "2000012": {
+      "index": 2000012,
+      "number": 12,
+      "name": "12th House",
+      "type": {
+        "index": 2000000,
+        "name": "House"
+      },
+      "longitude": {
+        "raw": 30.0,
+        "formatted": "30\u00b000'00\"",
+        "direction": "+",
+        "degrees": 30,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign_longitude": {
+        "raw": 0.0,
+        "formatted": "00\u00b000'00\"",
+        "direction": "+",
+        "degrees": 0,
+        "minutes": 0,
+        "seconds": 0
+      },
+      "sign": {
+        "number": 2,
+        "name": "Taurus",
+        "element": "Earth",
+        "modality": "Fixed"
+      },
+      "decan": {
+        "number": 1,
+        "name": "1st Decan"
+      },
+      "speed": 0.0,
+      "declination": {
+        "raw": 11.471434553547809,
+        "formatted": "11\u00b028'17\"",
+        "direction": "+",
+        "degrees": 11,
+        "minutes": 28,
+        "seconds": 17
+      },
+      "size": 30.0
+    }
+  },
+  "aspects": [
+    {
+      "from_object": "Desc",
+      "to_object": "Part of Fortune",
+      "type": "Conjunction",
+      "orb": 5.0,
+      "distance": "02\u00b013'47\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Desc",
+      "to_object": "Pluto",
+      "type": "Conjunction",
+      "orb": 10.0,
+      "distance": "-03\u00b007'27\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Desc",
+      "to_object": "Chiron",
+      "type": "Conjunction",
+      "orb": 10.0,
+      "distance": "01\u00b010'15\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Uranus",
+      "to_object": "Part of Fortune",
+      "type": "Sextile",
+      "orb": 3.0,
+      "distance": "-60\u00b053'45\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Chiron",
+      "to_object": "Part of Fortune",
+      "type": "Conjunction",
+      "orb": 5.0,
+      "distance": "01\u00b003'32\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Mercury",
+      "to_object": "Pluto",
+      "type": "Square",
+      "orb": 10.0,
+      "distance": "-81\u00b018'06\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Venus",
+      "to_object": "Pluto",
+      "type": "Square",
+      "orb": 10.0,
+      "distance": "-85\u00b037'05\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Saturn",
+      "to_object": "Pluto",
+      "type": "Quincunx",
+      "orb": 3.0,
+      "distance": "-151\u00b019'53\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Chiron",
+      "to_object": "Pluto",
+      "type": "Conjunction",
+      "orb": 10.0,
+      "distance": "-04\u00b017'43\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Venus",
+      "to_object": "Chiron",
+      "type": "Square",
+      "orb": 10.0,
+      "distance": "-81\u00b019'22\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Saturn",
+      "to_object": "Chiron",
+      "type": "Quincunx",
+      "orb": 3.0,
+      "distance": "-147\u00b002'10\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Uranus",
+      "to_object": "Chiron",
+      "type": "Sextile",
+      "orb": 6.0,
+      "distance": "-61\u00b057'16\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "MC",
+      "to_object": "Uranus",
+      "type": "Conjunction",
+      "orb": 10.0,
+      "distance": "08\u00b031'35\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "MC",
+      "to_object": "Neptune",
+      "type": "Conjunction",
+      "orb": 10.0,
+      "distance": "-04\u00b041'23\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Saturn",
+      "to_object": "Uranus",
+      "type": "Square",
+      "orb": 10.0,
+      "distance": "-85\u00b004'53\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "True South Node",
+      "to_object": "Neptune",
+      "type": "Conjunction",
+      "orb": 5.0,
+      "distance": "03\u00b048'58\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Sun",
+      "to_object": "Neptune",
+      "type": "Sextile",
+      "orb": 6.0,
+      "distance": "-54\u00b007'47\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Moon",
+      "to_object": "Neptune",
+      "type": "Trine",
+      "orb": 10.0,
+      "distance": "123\u00b038'26\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Mars",
+      "to_object": "Neptune",
+      "type": "Square",
+      "orb": 10.0,
+      "distance": "-82\u00b005'43\"",
+      "condition": "Dissociate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Jupiter",
+      "to_object": "Neptune",
+      "type": "Square",
+      "orb": 10.0,
+      "distance": "-90\u00b041'02\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Saturn",
+      "to_object": "Neptune",
+      "type": "Square",
+      "orb": 10.0,
+      "distance": "-98\u00b017'52\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Sun",
+      "to_object": "True North Node",
+      "type": "Trine",
+      "orb": 5.0,
+      "distance": "122\u00b003'15\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Moon",
+      "to_object": "True North Node",
+      "type": "Sextile",
+      "orb": 3.0,
+      "distance": "-60\u00b010'32\"",
+      "condition": "Associate",
+      "movement": "Exact"
+    },
+    {
+      "from_object": "Mars",
+      "to_object": "True North Node",
+      "type": "Square",
+      "orb": 5.0,
+      "distance": "94\u00b005'18\"",
+      "condition": "Dissociate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Jupiter",
+      "to_object": "True North Node",
+      "type": "Square",
+      "orb": 5.0,
+      "distance": "85\u00b029'59\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Sun",
+      "to_object": "True South Node",
+      "type": "Sextile",
+      "orb": 3.0,
+      "distance": "-57\u00b056'45\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Moon",
+      "to_object": "Sun",
+      "type": "Opposition",
+      "orb": 10.0,
+      "distance": "177\u00b046'13\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Moon",
+      "to_object": "True South Node",
+      "type": "Trine",
+      "orb": 5.0,
+      "distance": "119\u00b049'28\"",
+      "condition": "Associate",
+      "movement": "Exact"
+    },
+    {
+      "from_object": "Moon",
+      "to_object": "Mercury",
+      "type": "Quincunx",
+      "orb": 3.0,
+      "distance": "151\u00b054'31\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Mars",
+      "to_object": "True South Node",
+      "type": "Square",
+      "orb": 5.0,
+      "distance": "-85\u00b054'42\"",
+      "condition": "Dissociate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Mars",
+      "to_object": "Jupiter",
+      "type": "Conjunction",
+      "orb": 10.0,
+      "distance": "08\u00b035'19\"",
+      "condition": "Dissociate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Jupiter",
+      "to_object": "True South Node",
+      "type": "Square",
+      "orb": 5.0,
+      "distance": "-94\u00b030'01\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Mercury",
+      "to_object": "Jupiter",
+      "type": "Sextile",
+      "orb": 6.0,
+      "distance": "62\u00b024'57\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Venus",
+      "to_object": "Jupiter",
+      "type": "Sextile",
+      "orb": 6.0,
+      "distance": "58\u00b005'59\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Jupiter",
+      "to_object": "Saturn",
+      "type": "Conjunction",
+      "orb": 10.0,
+      "distance": "07\u00b036'49\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    },
+    {
+      "from_object": "Venus",
+      "to_object": "Mercury",
+      "type": "Conjunction",
+      "orb": 10.0,
+      "distance": "-04\u00b018'59\"",
+      "condition": "Associate",
+      "movement": "Separative"
+    },
+    {
+      "from_object": "Venus",
+      "to_object": "Saturn",
+      "type": "Sextile",
+      "orb": 6.0,
+      "distance": "65\u00b042'48\"",
+      "condition": "Associate",
+      "movement": "Applicative"
+    }
+  ],
+  "weightings": {
+    "elements": {
+      "fire": [
+        3000002,
+        3000004,
+        6000003,
+        6000010,
+        4000001,
+        4000006,
+        4000011,
+        5000001
+      ],
+      "earth": [
+        6000007,
+        4000007,
+        4000008
+      ],
+      "air": [
+        3000001,
+        3000003,
+        6000004,
+        4000002,
+        4000009,
+        4000010
+      ],
+      "water": [
+        6000005,
+        4000003,
+        4000004
+      ]
+    },
+    "modalities": {
+      "cardinal": [
+        6000007,
+        4000001,
+        4000002,
+        4000006
+      ],
+      "fixed": [
+        3000003,
+        3000004,
+        6000003,
+        6000004,
+        6000005,
+        4000007,
+        4000008,
+        4000009,
+        4000010
+      ],
+      "mutable": [
+        3000001,
+        3000002,
+        6000010,
+        4000003,
+        4000004,
+        4000011,
+        5000001
+      ]
+    },
+    "quadrants": {
+      "first": [
+        3000001,
+        3000004,
+        6000003
+      ],
+      "second": [
+        6000005,
+        4000002
+      ],
+      "third": [
+        3000002,
+        3000003,
+        6000004,
+        6000010,
+        6000007,
+        4000009,
+        4000010,
+        4000011,
+        5000001
+      ],
+      "fourth": [
+        4000001,
+        4000003,
+        4000004,
+        4000006,
+        4000007,
+        4000008
+      ]
+    }
+  }
+}

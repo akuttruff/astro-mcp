@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "astro": {
+      "command": "python",
+      "args": ["-m", "astro_mcp.server"],
+      "env": {}
+    }
+  }
+}
