@@ -3,6 +3,7 @@
 import json
 import logging
 import sys
+from datetime import datetime
 from typing import Any, Optional, Tuple
 
 try:
@@ -18,6 +19,41 @@ formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(messag
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
+
+
+def get_current_datetime() -> dict:
+    """Get current date and time for LLM context awareness.
+    
+    Returns:
+        Dict with current datetime information including ISO format, 
+        local time, and date components
+    """
+    now = datetime.now()
+    return {
+        "current_datetime": now.isoformat(),
+        "date": now.strftime("%Y-%m-%d"),
+        "time": now.strftime("%H:%M:%S"),
+        "year": now.year,
+        "month": now.month,
+        "day": now.day,
+        "hour": now.hour,
+        "minute": now.minute,
+        "second": now.second,
+        "weekday": now.strftime("%A")
+    }
+
+
+def add_datetime_context(error_msg: str) -> str:
+    """Add current datetime context to error messages.
+    
+    Args:
+        error_msg: The error message to enhance
+        
+    Returns:
+        Error message with current datetime appended
+    """
+    dt = get_current_datetime()
+    return f"{error_msg}\n\nCurrent datetime: {dt['current_datetime']} ({dt['weekday']})"
 
 
 def chart_to_json(chart: Any) -> str:

@@ -5,7 +5,7 @@ from mcp.server.mcpserver import MCPServer
 
 from pydantic import TypeAdapter
 from astro_mcp.schemas import NatalChartParams, get_coordinates_for_params
-from astro_mcp.utils import chart_to_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from astro_mcp.utils import chart_to_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system, get_current_datetime
 from astro_mcp.config import get_config
 
 
@@ -26,6 +26,9 @@ def create_natal_chart(
     The output includes all planets (Sun through Pluto), angles (Asc, MC, IC, DSC),
     lunar nodes, Chiron, and Arabic parts. Also includes house cusps, aspects between
     planets, aspect patterns (T-squares, grand trines, etc.), and chart weightings.
+
+    NOTE: This tool is called by the LLM. The current date/time context is available
+    via get_current_datetime() from astro_mcp.utils for reference.
 
     Args:
         date_time: Birth date and time in format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'. Local time at the birthplace.
