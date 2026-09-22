@@ -67,11 +67,11 @@ class TestNatalChartHappyPath:
     def test_natal_chart_has_expected_structure(self, fixture_data_nyc):
         """Test that the natal chart has all expected top-level keys."""
         data = fixture_data_nyc
-        
-        assert "type" in data
-        assert data["type"] == "Natal"
-        
-        assert "native" in data
+
+        assert "chart_type" in data
+        assert data["chart_type"] == "natal"
+
+        assert "date_time" in data
         assert "house_system" in data
         assert "objects" in data
         assert "houses" in data

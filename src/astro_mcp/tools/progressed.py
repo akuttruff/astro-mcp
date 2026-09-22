@@ -1,9 +1,8 @@
 """Progressed chart tool for astro-mcp."""
 
-import json
 from mcp.server.mcpserver import MCPServer
 
-from astro_mcp.utils import chart_to_json, corrected_moon_phase, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
 
 
@@ -83,18 +82,17 @@ def create_progressed_chart(
         # Get aspect details using immanuel's internal Aspect objects
         aspects_list = extract_aspect_details(progressed_chart)
 
-        # Serialize to JSON with aspect details
-        result_json = json.loads(chart_to_json(progressed_chart))
-
-        # Replace the aspects array with detailed aspect information
-        result_json["aspects"] = aspects_list
-
-        # immanuel's moon phase bins are mislabeled (see corrected_moon_phase)
-        moon_phase = corrected_moon_phase(progressed_chart)
-        if moon_phase is not None:
-            result_json["moon_phase"] = moon_phase
-
-        return json.dumps(result_json, indent=2)
+        return compact_chart_json(
+            progressed_chart,
+            chart_type="progressed",
+            date_time=date_time.replace("T", " "),
+            house_system=house_system or "whole_sign",
+            aspects=aspects_list,
+            extra={
+                "target_date": target_date.replace("T", " "),
+                "progressed_date_time": progressed_chart.progressed_date_time.datetime.isoformat(),
+            },
+        )
 
     except ValueError as e:
         return error_response("Progressed chart generation failed", str(e))

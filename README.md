@@ -107,17 +107,23 @@ Both formats work for all chart generation tools.
 
 ## Example Output
 
-The natal chart tool returns a structured JSON object containing:
+The chart tools return a compact, structured JSON object (kept small so it
+isn't truncated by MCP clients) containing:
 
-- Chart type and native data
-- House system used
-- Shape and diurnal flag
-- Moon phase information
-- **Objects** - Planets (Sun through Pluto), angles (Asc, MC, IC, DSC), lunar nodes, Chiron, Arabic parts
-- **Houses** - 12 house cusps with sign and longitude
-- **Aspects** - All planetary aspects with orb and type
-- **Aspect patterns** - T-squares, grand trines, etc.
-- **Weightings** - Elements, modalities, and quadrants
+- `chart_type` and `date_time`
+- `house_system` used
+- **`objects`** - Planets (Sun through Pluto), angles (Asc, MC, IC, Desc),
+  lunar nodes, Chiron, and Arabic parts, keyed by name, each with a decimal
+  `longitude`, a DMS `position` (e.g. `26°15'39" Virgo`), `house`, and planet
+  `speed` (negative speed = retrograde)
+- **`houses`** - 12 house cusps, each with a decimal `cusp` and DMS `position`
+- **`aspects`** - Detailed aspects with type, orb, condition, and movement
+- **`aspect_patterns`** - T-squares, grand trines, etc., named by object
+- `moon_phase` and `diurnal` flag
+
+Transit charts additionally place transiting objects in the natal chart's
+houses and report the filtered transit-to-natal aspects. Solar return and
+progressed charts include their specific date/time fields.
 
 ## Testing
 

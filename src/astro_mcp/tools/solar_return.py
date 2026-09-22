@@ -1,9 +1,8 @@
 """Solar return chart tool for astro-mcp."""
 
-import json
 from mcp.server.mcpserver import MCPServer
 
-from astro_mcp.utils import chart_to_json, corrected_moon_phase, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
 
 
@@ -80,18 +79,17 @@ def create_solar_return(
         # Get aspect details using immanuel's internal Aspect objects
         aspects_list = extract_aspect_details(solar_return_chart)
 
-        # Serialize to JSON with aspect details
-        result_json = json.loads(chart_to_json(solar_return_chart))
-
-        # Replace the aspects array with detailed aspect information
-        result_json["aspects"] = aspects_list
-
-        # immanuel's moon phase bins are mislabeled (see corrected_moon_phase)
-        moon_phase = corrected_moon_phase(solar_return_chart)
-        if moon_phase is not None:
-            result_json["moon_phase"] = moon_phase
-
-        return json.dumps(result_json, indent=2)
+        return compact_chart_json(
+            solar_return_chart,
+            chart_type="solar_return",
+            date_time=date_time.replace("T", " "),
+            house_system=house_system or "whole_sign",
+            aspects=aspects_list,
+            extra={
+                "solar_return_year": year,
+                "solar_return_date_time": solar_return_chart.solar_return_date_time.datetime.isoformat(),
+            },
+        )
 
     except ValueError as e:
         return error_response("Solar return generation failed", str(e))

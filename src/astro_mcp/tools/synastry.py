@@ -2,7 +2,7 @@
 
 from mcp.server.mcpserver import MCPServer
 
-from astro_mcp.utils import chart_to_json, corrected_moon_phase, error_response, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
 
 
@@ -95,8 +95,8 @@ def register(mcp: MCPServer):
 
             # Create composite chart with cross-aspects to Person B's natal
             composite = charts.Composite(
-                native_a=native_a,
-                native_b=native_b,
+                native=native_a,
+                partner=native_b,
                 config=config,
                 aspects_to=natal_b
             )
@@ -104,12 +104,13 @@ def register(mcp: MCPServer):
             # Build response with both individuals' data and composite
             import json
 
-            composite_json = json.loads(chart_to_json(composite))
-
-            # immanuel's moon phase bins are mislabeled (see corrected_moon_phase)
-            moon_phase = corrected_moon_phase(composite)
-            if moon_phase is not None:
-                composite_json["moon_phase"] = moon_phase
+            composite_data = json.loads(compact_chart_json(
+                composite,
+                chart_type="composite",
+                date_time=date_time_a.replace("T", " "),
+                house_system=house_system or "whole_sign",
+                aspects=extract_aspect_details(composite),
+            ))
 
             result = {
                 "person_a": {
@@ -122,7 +123,7 @@ def register(mcp: MCPServer):
                     "latitude": latitude_b,
                     "longitude": longitude_b,
                 },
-                "composite_chart": composite_json,
+                "composite_chart": composite_data,
                 "cross_aspects": {
                     "description": (
                         "Aspects from Person A's planets to Person B's planets. "

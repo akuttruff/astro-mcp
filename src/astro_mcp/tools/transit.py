@@ -5,7 +5,7 @@ from mcp.server.mcpserver import MCPServer
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from astro_mcp.utils import chart_to_json, corrected_moon_phase, error_response, extract_aspect_details, calculate_transit_to_natal_aspects, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
+from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, calculate_transit_to_natal_aspects, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
 from astro_mcp.config import get_config
 
 
@@ -71,9 +71,10 @@ def create_transit_chart(
     - General transit analysis over any time period
 
     The output includes:
-    - Transiting planets positioned against the natal chart's houses
-    - All transiting-to-natal aspects with full details (type, orb, condition)
-    - The natal chart data for reference
+    - Transiting planets (decimal + DMS position, natal house)
+    - The natal chart's house cusps
+    - Transit-to-natal aspects (type, orb), filtered by aspect_type/max_orb/
+      object_filter when provided
 
     Args:
         date_time: Birth date and time of the natal chart being transited. Format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'.
@@ -82,7 +83,7 @@ def create_transit_chart(
         transit_date_time: The date/time of the transit. Format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'. If omitted, uses current time. For lunation work, specify the exact time of a new or full moon.
         house_system: House system to use. Default: 'whole_sign'. See list_house_systems for options.
         aspect_type: Filter aspects to specific type(s) (e.g., "Conjunction", "Square"). Multiple types can be comma-separated.
-        max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included (exact/tight aspects are always kept). Default: 2.5
+        max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included (exact/tight aspects are always kept). Default: 1.5
         object_filter: Filter to specific transiting objects (comma-separated list of planet names).
 
     Returns:
@@ -137,7 +138,7 @@ def create_transit_chart(
         except ValueError:
             return error_response("Invalid max_orb", "Must be a valid number")
     else:
-        max_orb_val = 2.5
+        max_orb_val = 1.5
 
     try:
         from immanuel import charts
@@ -176,34 +177,20 @@ def create_transit_chart(
             object_filter=object_filter_list
         )
 
-        # Serialize to JSON with aspect details
-        result_json = json.loads(chart_to_json(transit_chart))
-
         # Assign transit objects to natal chart houses (fixes house assignment bug)
         assigned_houses = assign_natal_houses_to_transit_objects(transit_chart, natal_chart, house_system or 'whole_sign')
 
-        # Update object houses in the result
-        if 'objects' in result_json:
-            for obj_id, obj_data in result_json['objects'].items():
-                obj_name = obj_data.get('name', '')
-                if obj_name in assigned_houses:
-                    house_number = assigned_houses[obj_name]
-                    # Update the house number
-                    result_json['objects'][obj_id]['house'] = {
-                        'index': 2000000 + house_number,
-                        'number': house_number,
-                        'name': f'{house_number}th House'
-                    }
-
-        # Replace the aspects array with filtered aspect information
-        result_json["aspects"] = filtered_aspects
-
-        # immanuel's moon phase bins are mislabeled (see corrected_moon_phase)
-        moon_phase = corrected_moon_phase(transit_chart)
-        if moon_phase is not None:
-            result_json["moon_phase"] = moon_phase
-
-        return json.dumps(result_json, indent=2)
+        # Serialize compactly: transiting objects placed in the NATAL chart's
+        # houses, with the filtered transit-to-natal aspects as "aspects".
+        return compact_chart_json(
+            transit_chart,
+            chart_type="transit",
+            date_time=transit_dt,
+            house_system=house_system or 'whole_sign',
+            house_overrides=assigned_houses,
+            houses_chart=natal_chart,
+            aspects=filtered_aspects,
+        )
 
     except ValueError as e:
         return error_response("Transit chart generation failed", str(e))
@@ -221,7 +208,7 @@ def list_upcoming_planetary_transits(
     end_date: str | None = None,
     house_system: str | None = None,
     aspect_filter: str | None = None,
-    max_orb: float | None = 2.5
+    max_orb: float | None = 1.5
 ) -> str:
     """List upcoming transit aspects to the natal chart over a date range.
 
@@ -240,7 +227,7 @@ def list_upcoming_planetary_transits(
         end_date: End date for scanning transits. Default: +365 days.
         house_system: House system to use. Default: 'whole_sign'.
         aspect_filter: Filter by aspect types (comma-separated, e.g., "Conjunction,Square").
-        max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included. Default: 2.5
+        max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included. Default: 1.5
 
     Returns:
         JSON string with list of upcoming transits, each containing date, objects, aspect type, and orb
@@ -369,7 +356,7 @@ def list_upcoming_transits_to_natal(
     end_date: str | None = None,
     house_system: str | None = None,
     aspect_filter: str | None = None,
-    max_orb: float | None = 2.5
+    max_orb: float | None = 1.5
 ) -> str:
     """List upcoming transit aspects to your natal chart over a date range.
 
@@ -389,7 +376,7 @@ def list_upcoming_transits_to_natal(
         end_date: End date for scanning transits. Default: +365 days.
         house_system: House system to use. Default: 'whole_sign'.
         aspect_filter: Filter by aspect types (comma-separated, e.g., "Conjunction,Square").
-        max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included. Default: 2.5
+        max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included. Default: 1.5
 
     Returns:
         JSON string with list of upcoming transits, each containing date, objects, aspect type, and orb

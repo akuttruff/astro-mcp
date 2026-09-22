@@ -57,14 +57,116 @@ def add_datetime_context(error_msg: str) -> str:
     return f"{error_msg}\n\nCurrent datetime: {dt['current_datetime']} ({dt['weekday']})"
 
 
-def chart_to_json(chart: Any) -> str:
-    """Serialize a full immanuel chart to JSON string."""
-    return json.dumps(chart, cls=charts.ToJSON, indent=2) if hasattr(charts, "ToJSON") else str(chart)
+def _compact_object(obj: Any, house_overrides: dict[str, int] | None = None) -> dict:
+    """Compact representation of a single chart object.
+
+    Keeps what interpretation needs (position, sign, house, speed) without
+    immanuel's full per-object serialization (raw/degrees/minutes/seconds
+    breakdowns, decans, declination, dignities, ...).
+    """
+    house = None
+    if house_overrides and obj.name in house_overrides:
+        house = house_overrides[obj.name]
+    elif getattr(obj, "house", None) is not None:
+        house = obj.house.number
+
+    entry = {
+        # Full-precision decimal degrees (~1.3" resolution); immanuel's
+        # .degrees attribute would quantize to whole degrees.
+        "longitude": round(obj.longitude.raw % 360, 4),
+        "position": f"{obj.sign_longitude.formatted} {obj.sign.name}",
+        "house": house,
+    }
+    if getattr(obj.type, "name", None) == "Planet":
+        entry["speed"] = round(obj.speed, 2)  # negative speed = retrograde
+    return entry
 
 
-def object_to_json(obj: Any) -> str:
-    """Serialize a single chart object to JSON string."""
-    return json.dumps(obj, cls=charts.ToJSON, indent=2) if hasattr(charts, "ToJSON") else str(obj)
+def _compact_houses(chart: Any) -> dict:
+    """House number -> {cusp (decimal degrees), position (DMS in sign)}."""
+    houses = {}
+    for house in chart.houses.values():
+        houses[str(house.number)] = {
+            "cusp": round(house.longitude.raw % 360, 4),
+            "position": f"{house.sign_longitude.formatted} {house.sign.name}",
+        }
+    return dict(sorted(houses.items()))
+
+
+def _compact_aspect_patterns(chart: Any) -> dict:
+    """Aspect patterns with object indices replaced by object names.
+
+    immanuel's AspectPatterns is a wrapper object with one attribute per
+    pattern type (t_square, grand_trine, ...), each a list of instances;
+    each instance is a list of arms; each arm is a tuple of object indices.
+    """
+    patterns = getattr(chart, "aspect_patterns", None)
+    if patterns is None:
+        return {}
+    obj_map = {o.index: o.name for o in chart.objects.values()}
+
+    def arm_names(arm):
+        return [obj_map.get(getattr(i, "index", i), str(getattr(i, "index", i))) for i in arm]
+
+    return {
+        pattern_name: [[arm_names(arm) for arm in instance] for instance in instances]
+        for pattern_name, instances in vars(patterns).items()
+        if not pattern_name.startswith("_")
+    }
+
+
+def compact_chart_json(
+    chart: Any,
+    chart_type: str,
+    date_time: str | None = None,
+    house_system: str | None = None,
+    house_overrides: dict[str, int] | None = None,
+    houses_chart: Any | None = None,
+    aspects: list[dict] | None = None,
+    extra: dict | None = None,
+) -> str:
+    """Serialize an immanuel chart to a compact JSON string.
+
+    Replaces the full immanuel ToJSON dump (~50KB per chart, routinely
+    truncated by MCP clients) with a lean structure: name-keyed objects
+    with decimal + DMS positions, house cusps, detailed aspects, aspect
+    patterns, corrected moon phase, and diurnal flag.
+
+    Args:
+        chart: An immanuel chart object (Natal, Transits, ...).
+        chart_type: Label for the "chart_type" field ("natal", "transit", ...).
+        date_time: Chart date/time string for the "date_time" field.
+        house_system: House system id for the "house_system" field.
+        house_overrides: Optional object name -> house number overrides
+            (e.g. natal house numbers for transiting objects).
+        houses_chart: Optional chart whose houses to serialize (defaults to
+            the chart itself; transit charts use the natal chart's houses).
+        aspects: Optional pre-computed aspect list (defaults to
+            extract_aspect_details(chart)).
+        extra: Optional dict of chart-specific fields to merge in.
+    """
+    if aspects is None:
+        aspects = extract_aspect_details(chart)
+
+    result = {
+        "chart_type": chart_type,
+        "date_time": date_time,
+        "house_system": house_system,
+        "objects": {
+            obj.name: _compact_object(obj, house_overrides)
+            for obj in chart.objects.values()
+        },
+        "houses": _compact_houses(houses_chart if houses_chart is not None else chart),
+        "aspects": aspects,
+        "aspect_patterns": _compact_aspect_patterns(chart),
+        "diurnal": bool(getattr(chart, "diurnal", False)),
+    }
+    moon_phase = corrected_moon_phase(chart)
+    if moon_phase is not None:
+        result["moon_phase"] = moon_phase
+    if extra:
+        result.update(extra)
+    return json.dumps(result, indent=2)
 
 
 def error_response(message: str, detail: str = "") -> str:

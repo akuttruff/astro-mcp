@@ -55,10 +55,10 @@ class TestSolarReturnHappyPath:
         import json
         data = json.loads(result)
         
-        assert "type" in data
-        assert data["type"] == "Solar Return"
-        
-        assert "native" in data
+        assert "chart_type" in data
+        assert data["chart_type"] == "solar_return"
+
+        assert "date_time" in data
         assert "house_system" in data
 
     def test_solar_return_has_expected_year(self, reference_a):
@@ -93,7 +93,7 @@ class TestSolarReturnHappyPath:
         data = json.loads(result)
         
         assert "solar_return_date_time" in data
-        assert "datetime" in data["solar_return_date_time"]
+        assert data["solar_return_date_time"].startswith("2025-")
 
 
 class TestSolarReturnValidation:
@@ -219,7 +219,7 @@ class TestSolarReturnHouseSystems:
         
         # In Whole Sign houses, each house starts at 0° of a sign
         for house_key, house in data.get("houses", {}).items():
-            longitude_value = house["longitude"]["degrees"]
+            longitude_value = house["cusp"]
             assert abs(longitude_value % 30) < 0.01, f"House {house_key} not at sign start: {longitude_value}"
 
     def test_placidus_houses_differ_from_whole_sign(self, reference_a):
@@ -253,8 +253,8 @@ class TestSolarReturnHouseSystems:
         whole_house_keys = list(data_whole["houses"].keys())
         placidus_house_keys = list(data_placidus["houses"].keys())
         
-        whole_cusp1 = data_whole["houses"][whole_house_keys[0]]["longitude"]["degrees"]
-        placidus_cusp1 = data_placidus["houses"][placidus_house_keys[0]]["longitude"]["degrees"]
+        whole_cusp1 = data_whole["houses"][whole_house_keys[0]]["cusp"]
+        placidus_cusp1 = data_placidus["houses"][placidus_house_keys[0]]["cusp"]
         
         # They should be different (within tolerance for rounding)
         assert abs(whole_cusp1 - placidus_cusp1) > 0.5, "Placidus and Whole Sign should differ"
@@ -267,18 +267,18 @@ class TestSolarReturnObjects:
         """Test that Chiron is included in the solar return chart."""
         data = fixture_data_solar_return
         
-        object_names = [obj["name"] for obj in data.get("objects", {}).values()]
+        object_names = list(data.get("objects", {}).keys())
         assert "Chiron" in object_names
 
     def test_all_planets_present(self, fixture_data_solar_return):
         """Test that all planets are included."""
         data = fixture_data_solar_return
         
-        object_names = [obj["name"] for obj in data.get("objects", {}).values()]
-        
+        object_names = list(data.get("objects", {}).keys())
+
         expected_planets = ["Sun", "Moon", "Mercury", "Venus", "Mars",
                            "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"]
-        
+
         for planet in expected_planets:
             assert planet in object_names, f"Missing planet: {planet}"
 
@@ -286,8 +286,8 @@ class TestSolarReturnObjects:
         """Test that all angles are included."""
         data = fixture_data_solar_return
         
-        object_names = [obj["name"] for obj in data.get("objects", {}).values()]
-        
+        object_names = list(data.get("objects", {}).keys())
+
         expected_angles = ["Asc", "MC", "IC", "Desc"]
         
         for angle in expected_angles:
@@ -297,8 +297,8 @@ class TestSolarReturnObjects:
         """Test that lunar nodes are included."""
         data = fixture_data_solar_return
         
-        object_names = [obj["name"] for obj in data.get("objects", {}).values()]
-        
+        object_names = list(data.get("objects", {}).keys())
+
         assert "True North Node" in object_names
         assert "True South Node" in object_names
 
@@ -359,11 +359,11 @@ class TestSolarReturnSerialization:
     def test_chart_serializes_to_json(self, fixture_data_solar_return):
         """Test that chart serializes to valid JSON."""
         data = fixture_data_solar_return
-        
-        assert "type" in data
-        assert data["type"] == "Solar Return"
-        
-        assert "native" in data
+
+        assert "chart_type" in data
+        assert data["chart_type"] == "solar_return"
+
+        assert "date_time" in data
         assert "solar_return_year" in data
         assert "objects" in data
         assert "houses" in data

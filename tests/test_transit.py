@@ -18,50 +18,59 @@ def reference_a():
 
 @pytest.fixture
 def fixture_data_transit():
-    """Fixture data for NYC transit chart."""
+    """Fixture data for transit chart at a fixed 2025 date."""
     fixture_path = os.path.join(os.path.dirname(__file__), "fixtures", "reference_a_nyc_transit_2025.json")
-    
+
     # Generate fixture if it doesn't exist
     if not os.path.exists(fixture_path):
         from immanuel import charts
-        from astro_mcp.utils import extract_aspect_details
-        
+        from astro_mcp.config import get_config
+        from astro_mcp.tools.transit import _transits_for_date
+        from astro_mcp.utils import (
+            assign_natal_houses_to_transit_objects,
+            calculate_transit_to_natal_aspects,
+            compact_chart_json,
+        )
+
         reference = {
             "date_time": "1984-05-10 20:44",
             "latitude": 34.02,
             "longitude": -118.40,
         }
-        
+
+        config = get_config("whole_sign")
+
         native = charts.Subject(
             date_time=reference["date_time"],
             latitude=reference["latitude"],
             longitude=reference["longitude"],
         )
-        
-        config = charts.Config()
-        from immanuel.const import chart as chart_const
-        config.house_system = chart_const.WHOLE_SIGN
-        
+
         natal_chart = charts.Natal(native, config=config)
-        
-        transit_chart = charts.Transits(
-            latitude=reference["latitude"],
-            longitude=reference["longitude"],
-            aspects_to=natal_chart,
-            config=config
+
+        transit_chart = _transits_for_date(
+            "2025-06-15 14:30", reference["latitude"], reference["longitude"], natal_chart, config
         )
-        
-        # Get aspect details
-        aspects_list = extract_aspect_details(transit_chart)
-        
-        # Serialize and update
-        json_str = json.dumps(transit_chart, cls=charts.ToJSON)
-        data = json.loads(json_str)
-        data["aspects"] = aspects_list
-        
+
+        natal_positions = {
+            o.name: o.longitude.raw % 360
+            for o in natal_chart.objects.values()
+            if o.name in ["Sun", "Moon", "Mercury", "Venus", "Mars",
+                          "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Chiron"]
+        }
+        aspects_list = calculate_transit_to_natal_aspects(transit_chart, natal_positions)
+
         with open(fixture_path, "w") as f:
-            json.dump(data, f, indent=2)
-    
+            f.write(compact_chart_json(
+                transit_chart,
+                chart_type="transit",
+                date_time="2025-06-15 14:30",
+                house_system="whole_sign",
+                house_overrides=assign_natal_houses_to_transit_objects(transit_chart, natal_chart, "whole_sign"),
+                houses_chart=natal_chart,
+                aspects=aspects_list,
+            ))
+
     with open(fixture_path, "r") as f:
         return json.load(f)
 
@@ -95,10 +104,11 @@ class TestTransitChartHappyPath:
         )
         
         data = json.loads(result)
-        
-        assert "type" in data
-        assert data["type"] == "Transits"
-        
+
+        assert "chart_type" in data
+        assert data["chart_type"] == "transit"
+
+        assert "date_time" in data
         assert "objects" in data
         assert "houses" in data
 
@@ -114,12 +124,12 @@ class TestTransitChartHappyPath:
         )
         
         data = json.loads(result)
-        
-        object_names = [obj["name"] for obj in data.get("objects", {}).values()]
-        
+
+        object_names = list(data.get("objects", {}).keys())
+
         expected_planets = ["Sun", "Moon", "Mercury", "Venus", "Mars",
                            "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"]
-        
+
         for planet in expected_planets:
             assert planet in object_names, f"Missing planet: {planet}"
 
@@ -223,7 +233,7 @@ class TestTransitChartHouseSystems:
         
         # In Whole Sign houses, each house starts at 0° of a sign
         for house_key, house in data.get("houses", {}).items():
-            longitude_value = house["longitude"]["degrees"]
+            longitude_value = house["cusp"]
             assert abs(longitude_value % 30) < 0.01, f"House {house_key} not at sign start: {longitude_value}"
 
     def test_placidus_houses_differ_from_whole_sign(self, reference_a):
@@ -255,8 +265,8 @@ class TestTransitChartHouseSystems:
         whole_house_keys = list(data_whole["houses"].keys())
         placidus_house_keys = list(data_placidus["houses"].keys())
         
-        whole_cusp1 = data_whole["houses"][whole_house_keys[0]]["longitude"]["degrees"]
-        placidus_cusp1 = data_placidus["houses"][placidus_house_keys[0]]["longitude"]["degrees"]
+        whole_cusp1 = data_whole["houses"][whole_house_keys[0]]["cusp"]
+        placidus_cusp1 = data_placidus["houses"][placidus_house_keys[0]]["cusp"]
         
         # They should be different (within tolerance for rounding)
         assert abs(whole_cusp1 - placidus_cusp1) > 0.5, "Placidus and Whole Sign should differ"
@@ -268,16 +278,16 @@ class TestTransitChartObjects:
     def test_chiron_included(self, fixture_data_transit):
         """Test that Chiron is included in the transit chart."""
         data = fixture_data_transit
-        
-        object_names = [obj["name"] for obj in data.get("objects", {}).values()]
+
+        object_names = list(data.get("objects", {}).keys())
         assert "Chiron" in object_names
 
     def test_all_planets_present(self, fixture_data_transit):
         """Test that all planets are included."""
         data = fixture_data_transit
-        
-        object_names = [obj["name"] for obj in data.get("objects", {}).values()]
-        
+
+        object_names = list(data.get("objects", {}).keys())
+
         expected_planets = ["Sun", "Moon", "Mercury", "Venus", "Mars",
                            "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"]
         
@@ -287,9 +297,9 @@ class TestTransitChartObjects:
     def test_angles_present(self, fixture_data_transit):
         """Test that all angles are included."""
         data = fixture_data_transit
-        
-        object_names = [obj["name"] for obj in data.get("objects", {}).values()]
-        
+
+        object_names = list(data.get("objects", {}).keys())
+
         expected_angles = ["Asc", "MC", "IC", "Desc"]
         
         for angle in expected_angles:
@@ -298,9 +308,9 @@ class TestTransitChartObjects:
     def test_lunar_nodes_present(self, fixture_data_transit):
         """Test that lunar nodes are included."""
         data = fixture_data_transit
-        
-        object_names = [obj["name"] for obj in data.get("objects", {}).values()]
-        
+
+        object_names = list(data.get("objects", {}).keys())
+
         assert "True North Node" in object_names
         assert "True South Node" in object_names
 
@@ -326,14 +336,19 @@ class TestTransitChartAspects:
         assert "Trine" in aspect_types
 
     def test_transit_aspects_have_unique_pairs(self, fixture_data_transit):
-        """Test that transit aspects don't contain duplicate pairs."""
+        """Test that transit aspects don't contain duplicate directed pairs.
+
+        Transit-to-natal aspects are cross-chart: (transit X, natal Y) and
+        (transit Y, natal X) are different aspects that may both be present,
+        so uniqueness is checked on the directed (from, to, type) triple,
+        not on sorted name pairs.
+        """
         data = fixture_data_transit
-        
+
         aspect_pairs = []
         for aspect in data.get("aspects", []):
-            pair = tuple(sorted([aspect["from_object"], aspect["to_object"]]))
-            aspect_pairs.append(pair)
-        
+            aspect_pairs.append((aspect["from_object"], aspect["to_object"], aspect["type"]))
+
         # Check for duplicates
         assert len(aspect_pairs) == len(set(aspect_pairs)), "Duplicate aspect pairs found"
 
@@ -372,8 +387,8 @@ class TestTransitChartSerialization:
         """Test that chart serializes to valid JSON."""
         data = fixture_data_transit
 
-        assert "type" in data
-        assert data["type"] == "Transits"
+        assert "chart_type" in data
+        assert data["chart_type"] == "transit"
 
         assert "objects" in data
         assert "houses" in data
@@ -1023,7 +1038,7 @@ class TestExactTransitRegression:
     """Guard against exact/tight transits being silently dropped."""
 
     def test_exact_aspect_survives_default_orb_filter(self):
-        """An exact (orb 0) aspect must pass the default max_orb=2.5 filter."""
+        """An exact (orb 0) aspect must pass the default max_orb=1.5 filter."""
         from astro_mcp.utils import filter_aspects
 
         aspects = [
@@ -1031,7 +1046,7 @@ class TestExactTransitRegression:
             {"from_object": "Venus", "to_object": "Sun", "type": "Conjunction", "orb": 0.3},
             {"from_object": "Saturn", "to_object": "Mars", "type": "Square", "orb": 3.0},
         ]
-        filtered = filter_aspects(aspects, max_orb=2.5)
+        filtered = filter_aspects(aspects, max_orb=1.5)
         kept_pairs = {(a["from_object"], a["to_object"]) for a in filtered}
         assert ("Mars", "Moon") in kept_pairs, "exact transit was filtered out"
         assert ("Venus", "Sun") in kept_pairs
@@ -1079,7 +1094,7 @@ class TestExactTransitRegression:
         data = json.loads(result)
 
         # The chart's subject must be the requested moment
-        assert data["native"]["date_time"]["datetime"].startswith(reference_a["date_time"])
+        assert data["date_time"].startswith(reference_a["date_time"])
 
         # At the birth moment every transiting planet sits on its natal position
         conjunctions = [a for a in data["aspects"] if a["type"] == "Conjunction"]
@@ -1189,8 +1204,7 @@ class TestNatalTimezoneParams:
             longitude="-118.40",
             **kwargs,
         ))
-        moon = next(o for o in data["objects"].values() if o["name"] == "Moon")
-        return moon["longitude"]["raw"]
+        return data["objects"]["Moon"]["longitude"]
 
     def test_explicit_pdt_offset_matches_geolocated(self):
         # May 1984 in Los Angeles is PDT (UTC-7); an explicit -7.0 offset must

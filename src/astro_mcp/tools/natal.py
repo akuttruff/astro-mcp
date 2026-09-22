@@ -1,11 +1,10 @@
 """Natal chart tool for astro-mcp."""
 
-import json
 from mcp.server.mcpserver import MCPServer
 
 from pydantic import TypeAdapter
 from astro_mcp.schemas import NatalChartParams, get_coordinates_for_params
-from astro_mcp.utils import chart_to_json, corrected_moon_phase, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system, get_current_datetime
+from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
 
 
@@ -20,12 +19,12 @@ def create_natal_chart(
     state: str | None = None,
     country: str | None = None
 ) -> str:
-    """Generate a full natal chart with planets, houses, aspects, dignities, and patterns.
+    """Generate a full natal chart with planets, houses, aspects, and patterns.
 
     Use this tool to generate a complete birth chart for any date and location.
     The output includes all planets (Sun through Pluto), angles (Asc, MC, IC, DSC),
     lunar nodes, Chiron, and Arabic parts. Also includes house cusps, aspects between
-    planets, aspect patterns (T-squares, grand trines, etc.), and chart weightings.
+    planets, and aspect patterns (T-squares, grand trines, etc.).
 
     NOTE: This tool is called by the LLM. The current date/time context is available
     via get_current_datetime() from astro_mcp.utils for reference.
@@ -42,7 +41,10 @@ def create_natal_chart(
         country: Country code or name (optional, used with city for geocoding).
 
     Returns:
-        JSON string of the complete natal chart, or error message if validation fails
+        Compact JSON of the natal chart: name-keyed objects (decimal longitude,
+        DMS position, house, planet speed), house cusps, detailed aspects
+        (type, orb, condition, movement), aspect patterns, corrected moon
+        phase, and diurnal flag. Error JSON if validation fails.
     """
     # Validate date
     valid, error = validate_date_string(date_time)
@@ -93,18 +95,13 @@ def create_natal_chart(
         # Get aspect details using immanuel's internal Aspect objects
         aspects_list = extract_aspect_details(natal_chart)
 
-        # Serialize to JSON with aspect details
-        result_json = json.loads(chart_to_json(natal_chart))
-
-        # Replace the aspects array with detailed aspect information
-        result_json["aspects"] = aspects_list
-
-        # immanuel's moon phase bins are mislabeled (see corrected_moon_phase)
-        moon_phase = corrected_moon_phase(natal_chart)
-        if moon_phase is not None:
-            result_json["moon_phase"] = moon_phase
-
-        return json.dumps(result_json, indent=2)
+        return compact_chart_json(
+            natal_chart,
+            chart_type="natal",
+            date_time=date_time.replace("T", " "),
+            house_system=house_system or "whole_sign",
+            aspects=aspects_list,
+        )
 
     except ValueError as e:
         return error_response("Chart generation failed", str(e))
@@ -121,12 +118,12 @@ def register(mcp: MCPServer):
         create_natal_chart,
         name="create_natal_chart",
         description=(
-            "Generate a full natal chart with planets, houses, aspects, dignities, and patterns. "
+            "Generate a full natal chart with planets, houses, aspects, and patterns. "
             "Use this tool to generate a complete birth chart for any date and location. "
             "The output includes all planets (Sun through Pluto), angles (Asc, MC, IC, Desc), "
             "lunar nodes, Chiron, and Arabic parts. Also includes house cusps, detailed aspects "
             "with type (conjunction, opposition, square, trine, sextile), orb values, and "
-            "aspect patterns (T-squares, grand trines, etc.), and chart weightings. "
+            "aspect patterns (T-squares, grand trines, etc.). "
             "You can provide either (latitude AND longitude) OR (city, state, country). "
         )
     )
