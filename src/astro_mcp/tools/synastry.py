@@ -2,7 +2,7 @@
 
 from mcp.server.mcpserver import MCPServer
 
-from astro_mcp.utils import chart_to_json, error_response, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from astro_mcp.utils import chart_to_json, corrected_moon_phase, error_response, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
 
 
@@ -104,6 +104,13 @@ def register(mcp: MCPServer):
             # Build response with both individuals' data and composite
             import json
 
+            composite_json = json.loads(chart_to_json(composite))
+
+            # immanuel's moon phase bins are mislabeled (see corrected_moon_phase)
+            moon_phase = corrected_moon_phase(composite)
+            if moon_phase is not None:
+                composite_json["moon_phase"] = moon_phase
+
             result = {
                 "person_a": {
                     "date_time": date_time_a,
@@ -115,7 +122,7 @@ def register(mcp: MCPServer):
                     "latitude": latitude_b,
                     "longitude": longitude_b,
                 },
-                "composite_chart": json.loads(chart_to_json(composite)),
+                "composite_chart": composite_json,
                 "cross_aspects": {
                     "description": (
                         "Aspects from Person A's planets to Person B's planets. "

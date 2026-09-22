@@ -2,6 +2,7 @@
 
 import json
 import logging
+import math
 import sys
 from datetime import datetime
 from typing import Any, Optional, Tuple
@@ -72,6 +73,60 @@ def error_response(message: str, detail: str = "") -> str:
     if detail:
         err["detail"] = detail
     return json.dumps(err, indent=2)
+
+
+# (JSON key, display name) for the eight moon phases, in elongation order.
+# Names match immanuel's MOON_PHASES so output stays familiar.
+MOON_PHASES = [
+    ("new_moon", "New"),
+    ("waxing_crescent", "Waxing Crescent"),
+    ("first_quarter", "First Quarter"),
+    ("waxing_gibbous", "Waxing Gibbous"),
+    ("full_moon", "Full"),
+    ("disseminating", "Disseminating"),
+    ("third_quarter", "Third Quarter"),
+    ("balsamic", "Balsamic"),
+]
+
+
+def classify_moon_phase(sun_longitude: float, moon_longitude: float) -> dict:
+    """Classify the moon phase from Sun and Moon ecliptic longitudes.
+
+    immanuel's moon_phase_from() uses the principal elongations themselves
+    (0°, 45°, 90°, ...) as bin edges, so any Moon between 90° and 135° from
+    the Sun is labeled 'First Quarter' — but a Moon at 119° is ~74%
+    illuminated, i.e. a waxing gibbous Moon. This reclassifies with the
+    standard equal-width bins centered on each principal phase (edges at
+    22.5° + 45°·k), keeping immanuel's phase names and boolean output
+    shape, and adds the elongation and illumination fraction.
+    """
+    elongation = (moon_longitude - sun_longitude) % 360
+    index = int((elongation + 22.5) // 45) % 8
+    phase = {key: False for key, _ in MOON_PHASES}
+    phase[MOON_PHASES[index][0]] = True
+    phase["formatted"] = MOON_PHASES[index][1]
+    phase["elongation"] = round(elongation, 2)
+    phase["illumination"] = round((1 - math.cos(math.radians(elongation))) / 2, 3)
+    return phase
+
+
+def corrected_moon_phase(chart: Any) -> dict | None:
+    """Recompute a chart's moon_phase with corrected phase boundaries.
+
+    Args:
+        chart: An immanuel chart object with Sun and Moon in .objects
+
+    Returns:
+        Corrected moon_phase dict, or None if the chart has no Sun and
+        Moon to measure.
+    """
+    longitudes = {}
+    for obj in getattr(chart, "objects", {}).values():
+        if obj.name in ("Sun", "Moon"):
+            longitudes[obj.name] = obj.longitude.raw
+    if "Sun" not in longitudes or "Moon" not in longitudes:
+        return None
+    return classify_moon_phase(longitudes["Sun"], longitudes["Moon"])
 
 
 def validate_date_string(date_str: str) -> tuple[bool, str]:
@@ -273,6 +328,14 @@ def extract_aspect_details(chart: Any) -> list[dict]:
     aspects_list = []
     seen_pairs = set()  # Track unique aspect pairs to avoid duplicates
 
+    # In a natal (same-chart) aspect list each pair appears twice, as
+    # A->B and B->A. In a synastry/aspects_to chart (e.g. Transits against a
+    # Natal) every entry is a unique cross-chart pair: (transit X, natal Y)
+    # and (transit Y, natal X) are different aspects and must both be kept —
+    # but they share the same object indices/names, so name-based dedup would
+    # wrongly drop one of them.
+    is_synastry = getattr(chart, '_aspects_to', None) is not None
+
     # Iterate through aspect relationships
     for obj_id, relationships in chart.aspects.items():
         if isinstance(relationships, dict):
@@ -281,8 +344,12 @@ def extract_aspect_details(chart: Any) -> list[dict]:
                 from_name = obj_map.get(getattr(aspect, 'active', None), str(obj_id))
                 to_name = obj_map.get(getattr(aspect, 'passive', None), str(rel_obj_id))
 
-                # Create a unique pair key (sorted to avoid duplicates)
-                pair_key = tuple(sorted([from_name, to_name]))
+                # Create a unique pair key. Same-chart aspects collapse the
+                # A->B / B->A duplicates; synastry aspects do not.
+                if is_synastry:
+                    pair_key = (obj_id, rel_obj_id)
+                else:
+                    pair_key = (min(obj_id, rel_obj_id), max(obj_id, rel_obj_id))
 
                 # Skip if we've already seen this pair
                 if pair_key in seen_pairs:
@@ -297,11 +364,17 @@ def extract_aspect_details(chart: Any) -> list[dict]:
                 condition_str = str(condition_val) if condition_val else None
                 movement_str = str(movement_val) if movement_val else None
 
+                # immanuel's Aspect.orb is the configured (maximum) orb for the
+                # pair; the actual deviation from the exact angle is
+                # Aspect.difference (signed). Report the magnitude of that.
+                difference_val = getattr(aspect, 'difference', None)
+                actual_orb = abs(difference_val.raw) if difference_val is not None else None
+
                 aspect_info = {
                     "from_object": from_name,
                     "to_object": to_name,
                     "type": str(getattr(aspect, 'type', None)),
-                    "orb": getattr(aspect, 'orb', None),
+                    "orb": actual_orb,
                     "distance": str(getattr(aspect, 'distance', '')),
                     "condition": condition_str,
                     "movement": movement_str
@@ -328,10 +401,12 @@ def calculate_transit_to_natal_aspects(transit_chart: Any, natal_positions: dict
     import immanuel.charts
     
     # Get transiting planet positions (Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron)
+    # NOTE: use longitude.raw (full-precision float). The .degrees attribute is only
+    # the integer degree part of the DMS value and would quantize every orb to 1°.
     transit_positions = {}
     for obj in transit_chart.objects.values():
         if obj.name in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron']:
-            transit_positions[obj.name] = obj.longitude.degrees
+            transit_positions[obj.name] = obj.longitude.raw % 360
     
     # Define aspect orbs
     aspects = {
@@ -343,28 +418,24 @@ def calculate_transit_to_natal_aspects(transit_chart: Any, natal_positions: dict
     }
     
     found_aspects = []
-    seen_pairs = set()
-    
+
     for transiting, t_pos in transit_positions.items():
         for natal_name, n_pos in natal_positions.items():
             # Calculate diff
             diff = abs(t_pos - n_pos)
             if diff > 180:
                 diff = 360 - diff
-            
+
             # Check for aspects
             for aspect_name, orb in aspects.items():
                 expected = {'Opposition': 180, 'Square': 90, 'Trine': 120, 'Sextile': 60}.get(aspect_name, 0)
                 distance = abs(diff - expected)
-                
+
                 if distance <= orb:
-                    pair_key = tuple(sorted([transiting, natal_name]))
-                    
-                    # Skip if already seen (avoid duplicates like Moon Trine Sun and Sun Trine Moon)
-                    if pair_key in seen_pairs:
-                        continue
-                    seen_pairs.add(pair_key)
-                    
+                    # Each (transiting, natal) combination is visited exactly
+                    # once, so no deduplication is needed. Deduping by object
+                    # names would wrongly drop transiting X to natal Y whenever
+                    # transiting Y to natal X also aspects (same name pair).
                     found_aspects.append({
                         "from_object": transiting,
                         "to_object": natal_name,
@@ -378,26 +449,27 @@ def calculate_transit_to_natal_aspects(transit_chart: Any, natal_positions: dict
     return found_aspects
 
 
-def filter_aspects(aspects: list[dict], 
+def filter_aspects(aspects: list[dict],
                    aspect_type: str | None = None,
-                   min_orb: float | None = None,
+                   max_orb: float | None = None,
                    object_filter: list[str] | None = None) -> list[dict]:
     """Filter aspects based on criteria.
-    
+
     Args:
         aspects: List of aspect dictionaries to filter
         aspect_type: Filter by specific aspect type (e.g., "Conjunction", "Square")
-        min_orb: Minimum orb threshold (aspects with orb >= this value are kept)
+        max_orb: Maximum orb threshold (aspects with orb <= this value are kept,
+            so tighter/exact aspects are always included)
         object_filter: List of transiting object names to include
-        
+
     Returns:
         Filtered list of aspects
     """
     if not aspects:
         return []
-    
+
     filtered = []
-    
+
     for aspect in aspects:
         # Filter by aspect type
         if aspect_type:
@@ -407,11 +479,11 @@ def filter_aspects(aspects: list[dict],
             elif isinstance(aspect_type, list):
                 if aspect.get("type", "") not in aspect_type:
                     continue
-        
-        # Filter by minimum orb
-        if min_orb is not None:
+
+        # Filter by maximum orb (keep aspects tighter than or equal to the threshold)
+        if max_orb is not None:
             aspect_orb = aspect.get("orb")
-            if aspect_orb is None or aspect_orb < min_orb:
+            if aspect_orb is None or aspect_orb > max_orb:
                 continue
         
         # Filter by transiting objects
@@ -447,19 +519,22 @@ def assign_natal_houses_to_transit_objects(transit_chart: Any, natal_chart: Any,
     for house in natal_chart.houses.values():
         natal_house_longitudes[house.number] = house.longitude.degrees
     
-    # For Whole Sign houses, determine which sign each transit object is in
-    # and assign the corresponding house (house number = sign number)
+    # For Whole Sign houses, the sign of the Ascendant is house 1. Determine
+    # which sign each transit object is in and number the houses relative to
+    # the Ascendant's sign.
     if house_system == 'whole_sign':
+        asc = next((o for o in natal_chart.objects.values() if o.name == 'Asc'), None)
+        if asc is None:
+            return {}
+        asc_sign_index = int((asc.longitude.raw % 360) // 30)  # 0 = Aries, 11 = Pisces
+
         assigned_houses = {}
         for obj in transit_chart.objects.values():
             if hasattr(obj, 'longitude') and hasattr(obj, 'sign'):
-                longitude = obj.longitude.degrees
-                # Calculate sign (0-359 -> 1-12)
+                longitude = obj.longitude.raw % 360
                 sign_index = int(longitude // 30)  # Each sign is 30 degrees
-                sign_number = sign_index + 1  # Aries (index 0) is house 1
-                
-                assigned_houses[obj.name] = sign_number
-        
+                assigned_houses[obj.name] = (sign_index - asc_sign_index) % 12 + 1
+
         return assigned_houses
     
     # For other house systems, use the transit chart's house assignments

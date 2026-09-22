@@ -3,7 +3,7 @@
 import json
 from mcp.server.mcpserver import MCPServer
 
-from astro_mcp.utils import chart_to_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from astro_mcp.utils import chart_to_json, corrected_moon_phase, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
 
 
@@ -82,10 +82,15 @@ def create_solar_return(
 
         # Serialize to JSON with aspect details
         result_json = json.loads(chart_to_json(solar_return_chart))
-        
+
         # Replace the aspects array with detailed aspect information
         result_json["aspects"] = aspects_list
-        
+
+        # immanuel's moon phase bins are mislabeled (see corrected_moon_phase)
+        moon_phase = corrected_moon_phase(solar_return_chart)
+        if moon_phase is not None:
+            result_json["moon_phase"] = moon_phase
+
         return json.dumps(result_json, indent=2)
 
     except ValueError as e:

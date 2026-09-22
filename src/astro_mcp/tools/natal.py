@@ -5,7 +5,7 @@ from mcp.server.mcpserver import MCPServer
 
 from pydantic import TypeAdapter
 from astro_mcp.schemas import NatalChartParams, get_coordinates_for_params
-from astro_mcp.utils import chart_to_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system, get_current_datetime
+from astro_mcp.utils import chart_to_json, corrected_moon_phase, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system, get_current_datetime
 from astro_mcp.config import get_config
 
 
@@ -77,11 +77,14 @@ def create_natal_chart(
         # Build config
         config = get_config(house_system)
 
-        # Create subject (birth data)
+        # Create subject (birth data). When timezone_offset/time_is_dst are
+        # not provided, immanuel geolocates the timezone from the coordinates.
         native = charts.Subject(
             date_time=date_time.replace("T", " "),
             latitude=lat_val,
             longitude=lon_val,
+            timezone_offset=timezone_offset,
+            time_is_dst=time_is_dst,
         )
 
         # Create natal chart
@@ -92,10 +95,15 @@ def create_natal_chart(
 
         # Serialize to JSON with aspect details
         result_json = json.loads(chart_to_json(natal_chart))
-        
+
         # Replace the aspects array with detailed aspect information
         result_json["aspects"] = aspects_list
-        
+
+        # immanuel's moon phase bins are mislabeled (see corrected_moon_phase)
+        moon_phase = corrected_moon_phase(natal_chart)
+        if moon_phase is not None:
+            result_json["moon_phase"] = moon_phase
+
         return json.dumps(result_json, indent=2)
 
     except ValueError as e:
