@@ -8,8 +8,8 @@ from astro_mcp.config import get_config
 
 def create_progressed_chart(
     date_time: str,
-    latitude: str,
-    longitude: str,
+    latitude: str | float,
+    longitude: str | float,
     target_date: str,
     house_system: str | None = None
 ) -> str:
@@ -29,6 +29,11 @@ def create_progressed_chart(
     Returns:
         JSON string of the progressed chart, or error message if validation fails
     """
+    # The schema accepts coordinates as numbers (LLMs often send JSON
+    # numbers); normalize to str for the string-based validators below.
+    latitude = str(latitude)
+    longitude = str(longitude)
+
     # Validate birth date
     valid, error = validate_date_string(date_time)
     if not valid:

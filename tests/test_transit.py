@@ -1120,6 +1120,61 @@ class TestExactTransitRegression:
         assert stub_houses["Sun"] == 5
 
 
+class TestNumericCoordinateSchema:
+    """LLMs send coordinates as JSON numbers. The tool input schemas
+    (generated from the function type hints) must accept numbers as well as
+    strings, or the whole call is rejected with a parse error before the
+    tool body ever runs ('params.latitude is not any of [subschema 0]...')."""
+
+    @staticmethod
+    def _registered_tool(name):
+        from mcp.server.mcpserver import MCPServer
+        from astro_mcp.tools import transit
+
+        mcp = MCPServer(name="test")
+        transit.register(mcp)
+        return mcp._tool_manager._tools[name]
+
+    def test_list_upcoming_transits_accepts_numeric_coordinates(self):
+        tool = self._registered_tool("list_upcoming_transits")
+        args = tool.fn_metadata.validate_arguments({
+            "date_time": "1984-05-10 20:44",
+            "latitude": 34.0211,
+            "longitude": -118.3968,
+            "start_date": "2025-06-15",
+            "end_date": "2025-06-15",
+        })
+        assert args["latitude"] == 34.0211
+        assert args["longitude"] == -118.3968
+
+    def test_create_transit_chart_accepts_numeric_coordinates(self):
+        tool = self._registered_tool("create_transit_chart")
+        args = tool.fn_metadata.validate_arguments({
+            "date_time": "1984-05-10 20:44",
+            "latitude": 34.0211,
+            "longitude": -118.3968,
+            "transit_date_time": "2025-06-15 14:30",
+        })
+        assert args["latitude"] == 34.0211
+        assert args["longitude"] == -118.3968
+
+    def test_list_upcoming_transits_numeric_end_to_end(self):
+        """Numeric coordinates must survive the tool body's str()
+        normalization and come back intact in the result."""
+        from astro_mcp.tools.transit import list_upcoming_transits
+
+        data = json.loads(list_upcoming_transits(
+            date_time="1984-05-10 20:44",
+            latitude=34.0211,
+            longitude=-118.3968,
+            start_date="2025-06-15",
+            end_date="2025-06-15",
+        ))
+        assert data["mode"] == "natal"
+        assert data["natal"]["latitude"] == 34.0211
+        assert data["natal"]["longitude"] == -118.3968
+
+
 class TestNatalTimezoneParams:
     """timezone_offset is accepted by create_natal_chart and must actually
     reach the ephemeris (previously ignored)."""

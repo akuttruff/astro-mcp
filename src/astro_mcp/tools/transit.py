@@ -60,8 +60,8 @@ def _local_now_str(latitude, longitude) -> str:
 
 def create_transit_chart(
     date_time: str,
-    latitude: str,
-    longitude: str,
+    latitude: str | float,
+    longitude: str | float,
     transit_date_time: str | None = None,
     house_system: str | None = None,
     aspect_type: str | None = None,
@@ -102,6 +102,11 @@ def create_transit_chart(
     Returns:
         JSON string of the transit chart, or error message if validation fails
     """
+    # The schema accepts coordinates as numbers (LLMs often send JSON
+    # numbers); normalize to str for the string-based validators below.
+    latitude = str(latitude)
+    longitude = str(longitude)
+
     # Validate birth date
     valid, error = validate_date_string(date_time)
     if not valid:
@@ -228,8 +233,8 @@ def list_upcoming_transits(
     start_date: str | None = None,
     end_date: str | None = None,
     date_time: str | None = None,
-    latitude: str | None = None,
-    longitude: str | None = None,
+    latitude: str | float | None = None,
+    longitude: str | float | None = None,
     aspect_filter: str | None = None,
     max_orb: float | None = 1.5
 ) -> str:
@@ -273,6 +278,13 @@ def list_upcoming_transits(
         JSON string with transit_range, mode ('natal' or 'general'), total_transits,
         and a list of transit spans (start, end, from_object, to_object, type, orb)
     """
+    # The schema accepts coordinates as numbers (LLMs often send JSON
+    # numbers); normalize to str for the string-based validators below.
+    if latitude is not None:
+        latitude = str(latitude)
+    if longitude is not None:
+        longitude = str(longitude)
+
     # Birth data must be all-or-nothing
     birth_params = (date_time, latitude, longitude)
     if any(p is not None for p in birth_params) and not all(p is not None for p in birth_params):

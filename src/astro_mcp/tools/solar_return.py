@@ -8,8 +8,8 @@ from astro_mcp.config import get_config
 
 def create_solar_return(
     date_time: str,
-    latitude: str,
-    longitude: str,
+    latitude: str | float,
+    longitude: str | float,
     year: int,
     house_system: str | None = None
 ) -> str:
@@ -29,6 +29,11 @@ def create_solar_return(
     Returns:
         JSON string of the solar return chart, or error message if validation fails
     """
+    # The schema accepts coordinates as numbers (LLMs often send JSON
+    # numbers); normalize to str for the string-based validators below.
+    latitude = str(latitude)
+    longitude = str(longitude)
+
     # Validate birth date
     valid, error = validate_date_string(date_time)
     if not valid:

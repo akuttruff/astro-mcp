@@ -501,3 +501,43 @@ class TestNatalChartSerialization:
         assert "type" in data
         assert data["type"] == "Natal"
         assert "objects" in data
+
+
+class TestNatalNumericCoordinateSchema:
+    """LLMs send coordinates as JSON numbers. The tool input schemas
+    (generated from the function type hints) must accept numbers as well as
+    strings, or the whole call is rejected with a parse error before the
+    tool body ever runs ('params.latitude is not any of [subschema 0]...')."""
+
+    @staticmethod
+    def _registered_tool():
+        from mcp.server.mcpserver import MCPServer
+        from astro_mcp.tools import natal
+
+        mcp = MCPServer(name="test")
+        natal.register(mcp)
+        return mcp._tool_manager._tools["create_natal_chart"]
+
+    def test_accepts_numeric_coordinates(self):
+        args = self._registered_tool().fn_metadata.validate_arguments({
+            "date_time": "1984-05-10 20:44",
+            "latitude": 34.0211,
+            "longitude": -118.3968,
+        })
+        assert args["latitude"] == 34.0211
+        assert args["longitude"] == -118.3968
+
+    def test_numeric_coordinates_end_to_end(self):
+        """Numeric coordinates must reach the ephemeris and produce the same
+        Moon position as the string form of the same values."""
+        import json
+        from astro_mcp.tools.natal import create_natal_chart
+
+        def moon_longitude(latitude, longitude):
+            return json.loads(create_natal_chart(
+                date_time="1984-05-10 20:44",
+                latitude=latitude,
+                longitude=longitude,
+            ))["objects"]["Moon"]["longitude"]
+
+        assert abs(moon_longitude(34.0211, -118.3968) - moon_longitude("34.0211", "-118.3968")) < 1e-9

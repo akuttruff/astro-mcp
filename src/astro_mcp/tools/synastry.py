@@ -11,11 +11,11 @@ def register(mcp: MCPServer):
 
     def create_synastry(
         date_time_a: str,
-        latitude_a: str,
-        longitude_a: str,
+        latitude_a: str | float,
+        longitude_a: str | float,
         date_time_b: str,
-        latitude_b: str,
-        longitude_b: str,
+        latitude_b: str | float,
+        longitude_b: str | float,
         house_system: str | None = None
     ) -> str:
         """Generate a composite chart and cross-chart aspects between two people.
@@ -40,6 +40,13 @@ def register(mcp: MCPServer):
         Returns:
             JSON string containing composite chart and cross-aspects, or error message
         """
+        # The schema accepts coordinates as numbers (LLMs often send JSON
+        # numbers); normalize to str for the string-based validators below.
+        latitude_a = str(latitude_a)
+        longitude_a = str(longitude_a)
+        latitude_b = str(latitude_b)
+        longitude_b = str(longitude_b)
+
         # Validate Person A data
         valid, error = validate_date_string(date_time_a)
         if not valid:

@@ -5,8 +5,8 @@ from typing import Optional
 
 
 def get_coordinates_for_params(
-    latitude: Optional[str],
-    longitude: Optional[str],
+    latitude: Optional[str | float],
+    longitude: Optional[str | float],
     city: Optional[str],
     state: Optional[str] = None,
     country: Optional[str] = None

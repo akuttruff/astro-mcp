@@ -13,8 +13,8 @@ def create_natal_chart(
     house_system: str | None = None,
     time_is_dst: bool | None = None,
     timezone_offset: float | None = None,
-    latitude: str | None = None,
-    longitude: str | None = None,
+    latitude: str | float | None = None,
+    longitude: str | float | None = None,
     city: str | None = None,
     state: str | None = None,
     country: str | None = None

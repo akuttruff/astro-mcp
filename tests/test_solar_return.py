@@ -367,3 +367,42 @@ class TestSolarReturnSerialization:
         assert "solar_return_year" in data
         assert "objects" in data
         assert "houses" in data
+
+
+class TestSolarReturnNumericCoordinateSchema:
+    """LLMs send coordinates as JSON numbers. The tool input schemas
+    (generated from the function type hints) must accept numbers as well as
+    strings, or the whole call is rejected with a parse error before the
+    tool body ever runs ('params.latitude is not any of [subschema 0]...')."""
+
+    @staticmethod
+    def _registered_tool():
+        from mcp.server.mcpserver import MCPServer
+        from astro_mcp.tools import solar_return
+
+        mcp = MCPServer(name="test")
+        solar_return.register(mcp)
+        return mcp._tool_manager._tools["create_solar_return"]
+
+    def test_accepts_numeric_coordinates(self):
+        args = self._registered_tool().fn_metadata.validate_arguments({
+            "date_time": "1984-05-10 20:44",
+            "latitude": 34.0211,
+            "longitude": -118.3968,
+            "year": 2025,
+        })
+        assert args["latitude"] == 34.0211
+        assert args["longitude"] == -118.3968
+
+    def test_numeric_coordinates_end_to_end(self):
+        import json
+        from astro_mcp.tools.solar_return import create_solar_return
+
+        data = json.loads(create_solar_return(
+            date_time="1984-05-10 20:44",
+            latitude=34.0211,
+            longitude=-118.3968,
+            year=2025,
+        ))
+        assert data["chart_type"] == "solar_return"
+        assert data["solar_return_year"] == 2025
