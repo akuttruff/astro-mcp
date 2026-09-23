@@ -234,32 +234,50 @@ def corrected_moon_phase(chart: Any) -> dict | None:
 def validate_date_string(date_str: str) -> tuple[bool, str]:
     """Validate date string format and range.
 
+    Accepts ISO 8601 with a space or 'T' separator, optional seconds, and
+    optional fractional seconds — including the exact format returned by
+    get_current_datetime() (e.g. '2026-09-23T15:04:05.123456'):
+        YYYY-MM-DD HH:MM
+        YYYY-MM-DDTHH:MM
+        YYYY-MM-DD HH:MM:SS
+        YYYY-MM-DD[ T]HH:MM[:SS].ffffff
+
     Returns:
         Tuple of (is_valid, error_message if invalid)
     """
     import re
     from datetime import datetime
 
-    # Try ISO 8601 formats
-    patterns = [
-        r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$",  # YYYY-MM-DD HH:MM
-        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$",  # YYYY-MM-DDTHH:MM
-        r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",  # YYYY-MM-DD HH:MM:SS
-        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$",  # YYYY-MM-DDTHH:MM:SS
-    ]
+    match = re.match(
+        r"^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)$", date_str
+    )
+    if not match:
+        return False, (
+            "Invalid date format. Expected 'YYYY-MM-DD HH:MM' with optional "
+            "seconds and fractional seconds ('T' separator also accepted)"
+        )
 
-    for pattern in patterns:
-        if re.match(pattern, date_str):
-            try:
-                # Parse and validate range
-                dt = datetime.strptime(date_str.replace("T", " "), "%Y-%m-%d %H:%M")
-                if dt.year < 1200 or dt.year > 4799:
-                    return False, f"Date out of range. Supported range: 1200-01-01 to 4799-12-31"
-                return True, ""
-            except ValueError as e:
-                return False, f"Invalid date: {e}"
+    date_part, time_part = match.groups()
 
-    return False, "Invalid date format. Expected 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'"
+    # Build a strptime format matching the parts that are present
+    fmt = "%Y-%m-%d %H:%M"
+    if ":" in time_part[3:]:  # seconds are present
+        fmt += ":%S"
+    if "." in time_part:
+        # Fractional seconds are decimal; strptime %f expects 1-6 digits,
+        # so pad/truncate to exactly 6 (microsecond) digits.
+        whole, frac = time_part.split(".", 1)
+        time_part = f"{whole}.{frac[:6].ljust(6, '0')}"
+        fmt += ".%f"
+
+    try:
+        # Parse and validate range
+        dt = datetime.strptime(f"{date_part} {time_part}", fmt)
+        if dt.year < 1200 or dt.year > 4799:
+            return False, f"Date out of range. Supported range: 1200-01-01 to 4799-12-31"
+        return True, ""
+    except ValueError as e:
+        return False, f"Invalid date: {e}"
 
 
 def validate_latitude(latitude_str: str) -> tuple[bool, str]:

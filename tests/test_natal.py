@@ -541,3 +541,41 @@ class TestNatalNumericCoordinateSchema:
             ))["objects"]["Moon"]["longitude"]
 
         assert abs(moon_longitude(34.0211, -118.3968) - moon_longitude("34.0211", "-118.3968")) < 1e-9
+
+
+class TestNatalIsoDateTimeFormat:
+    """create_natal_chart must accept the exact datetime format returned by
+    get_current_datetime() (datetime.isoformat(): 'T' separator with
+    seconds and microseconds), not just minute-precision strings."""
+
+    def test_accepts_isoformat_with_microseconds(self):
+        import json
+        from astro_mcp.tools.natal import create_natal_chart
+
+        data = json.loads(create_natal_chart(
+            date_time="1984-05-10T20:44:05.123456",
+            latitude="34.02",
+            longitude="-118.40",
+        ))
+        assert data["chart_type"] == "natal"
+        assert data["date_time"] == "1984-05-10 20:44:05.123456"
+
+    def test_microseconds_match_whole_second_positions(self):
+        """Appending fractional seconds within the same clock second must
+        not shift planet longitudes beyond rounding tolerance."""
+        import json
+        from astro_mcp.tools.natal import create_natal_chart
+
+        def longitudes(date_time):
+            return {name: obj["longitude"] for name, obj in json.loads(
+                create_natal_chart(
+                    date_time=date_time,
+                    latitude="34.02",
+                    longitude="-118.40",
+                )
+            )["objects"].items()}
+
+        base = longitudes("1984-05-10 20:44:05")
+        frac = longitudes("1984-05-10T20:44:05.123456")
+        for name, lon in base.items():
+            assert abs(frac[name] - lon) < 1e-3, name

@@ -30,7 +30,9 @@ def create_natal_chart(
     via get_current_datetime() from astro_mcp.utils for reference.
 
     Args:
-        date_time: Birth date and time in format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'. Local time at the birthplace.
+        date_time: Birth date and time. 'YYYY-MM-DD HH:MM' or full ISO 8601
+            (e.g. 'YYYY-MM-DDTHH:MM:SS.ffffff' as returned by get_current_datetime).
+            Local time at the birthplace.
         house_system: House system to use. Default: 'whole_sign'. See list_house_systems for options.
         time_is_dst: Set true/false to clarify if the time is Daylight Saving Time.
         timezone_offset: Explicit UTC offset in hours (e.g. -8.0 for PST, -7.0 for PDT).

@@ -48,9 +48,47 @@ def test_utils_module():
     # Test date validation
     valid, msg = validate_date_string("1990-06-15 14:30")
     assert valid is True
-    
+
     valid, msg = validate_date_string("invalid-date")
     assert valid is False
+
+
+def test_validate_date_string_formats():
+    """The validator must accept every shape get_current_datetime() can
+    return (datetime.isoformat(): 'T' separator, seconds, microseconds) as
+    well as the classic minute-precision formats."""
+    from astro_mcp.utils import validate_date_string
+
+    # Classic formats (space or T, minutes or seconds)
+    for valid_date in [
+        "1990-06-15 14:30",
+        "1990-06-15T14:30",
+        "1990-06-15 14:30:05",
+        "1990-06-15T14:30:05",
+        # get_current_datetime() shape: isoformat() with microseconds
+        "2026-09-23T15:04:05.123456",
+        "2026-09-23 15:04:05.123456",
+        # Fractional without seconds, short and long fractions
+        "1990-06-15 14:30.5",
+        "1990-06-15T14:30:05.123",
+        "1990-06-15T14:30:05.123456789",
+    ]:
+        assert validate_date_string(valid_date) == (True, ""), valid_date
+
+    # Still rejected: garbage, impossible dates, out-of-range years
+    for invalid_date in [
+        "invalid-date",
+        "1990-13-15 14:30",   # month 13
+        "1990-06-31 14:30",   # June 31
+        "1990-06-15 25:30",   # hour 25
+        "1990-06-15 14:30:",  # trailing colon
+        " 1990-06-15 14:30",  # leading space
+        "1000-06-15 14:30",   # before ephemeris range
+        "5000-06-15 14:30",   # after ephemeris range
+    ]:
+        valid, msg = validate_date_string(invalid_date)
+        assert valid is False, invalid_date
+        assert msg, invalid_date
 
 
 def test_schemas():
