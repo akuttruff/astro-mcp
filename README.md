@@ -96,6 +96,7 @@ Both formats work for all chart generation tools.
 | `create_solar_return` | Generate an annual solar return forecast |
 | `create_progressed_chart` | Generate a progressed chart for any date |
 | `create_transit_chart` | Track current transits against a natal chart |
+| `list_upcoming_transits` | List dated upcoming transits over a date range - against a birth chart, or as-is without one |
 | `create_synastry` | Generate composite and cross-aspect charts for two people |
 
 ### Reference Tools

@@ -490,64 +490,101 @@ def extract_aspect_details(chart: Any) -> list[dict]:
     return aspects_list
 
 
+# The significant objects for aspect work: planets + Chiron. Angles, nodes,
+# and parts are excluded — including them in transit scans balloons output
+# with location-specific noise (transit IC conjunct natal MC, etc.).
+MAJOR_OBJECTS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron']
+
+# Major aspects: name -> (exact angle, detection orb in degrees)
+MAJOR_ASPECTS = {
+    'Conjunction': (0, 10),
+    'Opposition': (180, 10),
+    'Square': (90, 10),
+    'Trine': (120, 8),
+    'Sextile': (60, 6),
+}
+
+
+def _aspects_between(longitude_a: float, longitude_b: float) -> list[tuple[str, float]]:
+    """Major aspects between two ecliptic longitudes (degrees).
+
+    Returns (aspect_name, orb) pairs for every major aspect within its
+    detection orb. Orbs come from full-precision longitudes.
+    """
+    diff = abs(longitude_a - longitude_b)
+    if diff > 180:
+        diff = 360 - diff
+    return [
+        (name, abs(diff - angle))
+        for name, (angle, orb) in MAJOR_ASPECTS.items()
+        if abs(diff - angle) <= orb
+    ]
+
+
+def calculate_major_aspects(positions: dict) -> list[dict]:
+    """All major aspects among the objects of a single position set.
+
+    Used for transit scans without a birth chart: the aspects among the
+    transiting planets themselves on a given day. Each unordered pair is
+    reported once.
+
+    Args:
+        positions: Dict of {object_name: longitude_degrees}
+
+    Returns:
+        List of aspect dictionaries, sorted by orb (tightest first)
+    """
+    names = list(positions)
+    found_aspects = []
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            for aspect_name, orb in _aspects_between(positions[a], positions[b]):
+                found_aspects.append({
+                    "from_object": a,
+                    "to_object": b,
+                    "type": aspect_name,
+                    "orb": orb,
+                })
+    found_aspects.sort(key=lambda x: x['orb'])
+    return found_aspects
+
+
 def calculate_transit_to_natal_aspects(transit_chart: Any, natal_positions: dict) -> list[dict]:
     """Calculate transit-to-natal aspects for a transit chart.
-    
+
     Args:
         transit_chart: An immanuel Transit chart object
         natal_positions: Dict of {object_name: longitude_degrees} from natal chart
-        
+
     Returns:
         List of aspect dictionaries with transit-to-natal aspects
     """
-    import immanuel.charts
-    
-    # Get transiting planet positions (Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron)
     # NOTE: use longitude.raw (full-precision float). The .degrees attribute is only
     # the integer degree part of the DMS value and would quantize every orb to 1°.
-    transit_positions = {}
-    for obj in transit_chart.objects.values():
-        if obj.name in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron']:
-            transit_positions[obj.name] = obj.longitude.raw % 360
-    
-    # Define aspect orbs
-    aspects = {
-        'Conjunction': 10,
-        'Opposition': 10,
-        'Square': 10,
-        'Trine': 8,
-        'Sextile': 6
+    transit_positions = {
+        obj.name: obj.longitude.raw % 360
+        for obj in transit_chart.objects.values()
+        if obj.name in MAJOR_OBJECTS
     }
-    
-    found_aspects = []
 
+    found_aspects = []
     for transiting, t_pos in transit_positions.items():
         for natal_name, n_pos in natal_positions.items():
-            # Calculate diff
-            diff = abs(t_pos - n_pos)
-            if diff > 180:
-                diff = 360 - diff
+            # Each (transiting, natal) combination is visited exactly
+            # once, so no deduplication is needed. Deduping by object
+            # names would wrongly drop transiting X to natal Y whenever
+            # transiting Y to natal X also aspects (same name pair).
+            for aspect_name, orb in _aspects_between(t_pos, n_pos):
+                found_aspects.append({
+                    "from_object": transiting,
+                    "to_object": natal_name,
+                    "type": aspect_name,
+                    "orb": orb,
+                })
 
-            # Check for aspects
-            for aspect_name, orb in aspects.items():
-                expected = {'Opposition': 180, 'Square': 90, 'Trine': 120, 'Sextile': 60}.get(aspect_name, 0)
-                distance = abs(diff - expected)
-
-                if distance <= orb:
-                    # Each (transiting, natal) combination is visited exactly
-                    # once, so no deduplication is needed. Deduping by object
-                    # names would wrongly drop transiting X to natal Y whenever
-                    # transiting Y to natal X also aspects (same name pair).
-                    found_aspects.append({
-                        "from_object": transiting,
-                        "to_object": natal_name,
-                        "type": aspect_name,
-                        "orb": distance
-                    })
-    
     # Sort by orb (tightest first)
     found_aspects.sort(key=lambda x: x['orb'])
-    
+
     return found_aspects
 
 

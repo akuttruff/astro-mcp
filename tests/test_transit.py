@@ -112,6 +112,23 @@ class TestTransitChartHappyPath:
         assert "objects" in data
         assert "houses" in data
 
+    def test_transit_chart_note_points_to_timing_tool(self, reference_a):
+        """The single-moment output must steer the LLM to the range-scanning
+        tool instead of estimating transit timing itself."""
+        from astro_mcp.tools.transit import create_transit_chart
+
+        result = create_transit_chart(
+            date_time=reference_a["date_time"],
+            latitude=reference_a["latitude"],
+            longitude=reference_a["longitude"],
+            transit_date_time="2025-06-15 14:30"
+        )
+
+        data = json.loads(result)
+
+        assert "note" in data
+        assert "list_upcoming_transits with" in data["note"]
+
     def test_transit_chart_has_expected_objects(self, reference_a):
         """Test that transit chart has expected objects."""
         from astro_mcp.tools.transit import create_transit_chart
@@ -547,14 +564,14 @@ class TestTransitChartFiltering:
 
 
 class TestListUpcomingTransits:
-    """Test list_upcoming_planetary_transits tool."""
+    """Test list_upcoming_transits with birth data (natal mode)."""
 
-    def test_list_upcoming_planetary_transits_basic(self, reference_a):
-        """Test basic list_upcoming_planetary_transits functionality."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+    def test_list_upcoming_transits_basic(self, reference_a):
+        """Test basic natal-mode functionality."""
+        from astro_mcp.tools.transit import list_upcoming_transits
 
         # Scan a short range (1 day)
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
@@ -565,14 +582,17 @@ class TestListUpcomingTransits:
         data = json.loads(result)
 
         assert "transit_range" in data
+        assert data["mode"] == "natal"
+        assert "natal" in data
+        assert "note" not in data
         assert "total_transits" in data
         assert "transits" in data
 
-    def test_list_upcoming_planetary_transits_date_range(self, reference_a):
+    def test_list_upcoming_transits_date_range(self, reference_a):
         """Test that date range is properly set."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
@@ -585,11 +605,11 @@ class TestListUpcomingTransits:
         assert data["transit_range"]["start"] == "2025-06-15"
         assert data["transit_range"]["end"] == "2025-06-20"
 
-    def test_list_upcoming_planetary_transits_scans_multiple_days(self, reference_a):
+    def test_list_upcoming_transits_scans_multiple_days(self, reference_a):
         """Test that scanning multiple days returns transits for each day."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
@@ -599,17 +619,17 @@ class TestListUpcomingTransits:
 
         data = json.loads(result)
 
-        # Should have transits for at least some of the 3 days
-        dates = set(t["date"] for t in data["transits"])
-        
+        # Should have transits starting on at least some of the 3 days
+        dates = set(t["start"] for t in data["transits"])
+
         # Should contain at least some dates from the range
         assert len(dates) > 0
 
-    def test_list_upcoming_planetary_transits_with_aspect_filter(self, reference_a):
-        """Test list_upcoming_planetary_transits with aspect type filter."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+    def test_list_upcoming_transits_with_aspect_filter(self, reference_a):
+        """Test list_upcoming_transits with aspect type filter."""
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
@@ -624,11 +644,11 @@ class TestListUpcomingTransits:
         for transit in data["transits"]:
             assert transit["type"] == "Conjunction", f"Expected Conjunction, got {transit['type']}"
 
-    def test_list_upcoming_planetary_transits_with_max_orb(self, reference_a):
-        """Test list_upcoming_planetary_transits with maximum orb filter."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+    def test_list_upcoming_transits_with_max_orb(self, reference_a):
+        """Test list_upcoming_transits with maximum orb filter."""
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
@@ -643,11 +663,11 @@ class TestListUpcomingTransits:
         for transit in data["transits"]:
             assert transit["orb"] <= 2.0, f"Expected orb <= 2.0, got {transit['orb']}"
 
-    def test_list_upcoming_planetary_transits_total_count(self, reference_a):
+    def test_list_upcoming_transits_total_count(self, reference_a):
         """Test that total_transits count matches actual transits."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
@@ -659,11 +679,11 @@ class TestListUpcomingTransits:
 
         assert len(data["transits"]) == data["total_transits"]
 
-    def test_list_upcoming_planetary_transits_sorted_by_date(self, reference_a):
+    def test_list_upcoming_transits_sorted_by_date(self, reference_a):
         """Test that transits are sorted by date."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
@@ -673,16 +693,16 @@ class TestListUpcomingTransits:
 
         data = json.loads(result)
 
-        dates = [t["date"] for t in data["transits"]]
-        
+        starts = [t["start"] for t in data["transits"]]
+
         # Check that dates are sorted
-        assert dates == sorted(dates), "Transits should be sorted by date"
+        assert starts == sorted(starts), "Transits should be sorted by date"
 
-    def test_list_upcoming_planetary_transits_transit_structure(self, reference_a):
-        """Test that each transit has the expected structure."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+    def test_list_upcoming_transits_transit_structure(self, reference_a):
+        """Test that each transit span has the expected structure."""
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
@@ -693,17 +713,20 @@ class TestListUpcomingTransits:
         data = json.loads(result)
 
         for transit in data["transits"]:
-            assert "date" in transit
+            assert "start" in transit
+            assert "end" in transit
+            assert transit["start"] <= transit["end"]
             assert "from_object" in transit
             assert "to_object" in transit
             assert "type" in transit
             assert "orb" in transit
 
-    def test_list_upcoming_planetary_transits_default_date_range(self, reference_a):
-        """Test that default date range works (uses today to +365 days)."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+    def test_list_upcoming_transits_default_date_range(self, reference_a):
+        """Test that the default range is today to +60 days."""
+        from datetime import date, timedelta
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"]
@@ -711,19 +734,46 @@ class TestListUpcomingTransits:
 
         data = json.loads(result)
 
-        assert "transit_range" in data
-        assert "total_transits" in data
-        assert "transits" in data
+        today = date.today()
+        assert data["transit_range"]["start"] == today.isoformat()
+        assert data["transit_range"]["end"] == (today + timedelta(days=60)).isoformat()
+
+    def test_natal_span_known_aspect(self, reference_a):
+        """reference_a's natal Moon (26deg15 Virgo) is exactly sextile
+        transiting Mars on 2026-09-21 (12:48 local, verified against the
+        user's independent ephemeris). The midnight-sampled span must cover
+        2026-09-21 with a sub-degree tightest orb."""
+        from astro_mcp.tools.transit import list_upcoming_transits
+
+        result = list_upcoming_transits(
+            date_time=reference_a["date_time"],
+            latitude=reference_a["latitude"],
+            longitude=reference_a["longitude"],
+            start_date="2026-09-18",
+            end_date="2026-09-27"
+        )
+
+        data = json.loads(result)
+
+        spans = [
+            t for t in data["transits"]
+            if t["from_object"] == "Mars" and t["to_object"] == "Moon"
+            and t["type"] == "Sextile"
+        ]
+        assert len(spans) == 1, f"expected one Mars-Moon sextile span, got {spans}"
+        assert spans[0]["start"] in ("2026-09-19", "2026-09-20")
+        assert spans[0]["start"] <= "2026-09-21" <= spans[0]["end"]
+        assert spans[0]["orb"] < 0.5
 
 
 class TestListUpcomingTransitsValidation:
-    """Test validation for list_upcoming_planetary_transits."""
+    """Test validation for list_upcoming_transits."""
 
     def test_invalid_birth_date(self, reference_a):
         """Test that invalid birth date returns error."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time="invalid-date",
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"]
@@ -735,9 +785,9 @@ class TestListUpcomingTransitsValidation:
 
     def test_invalid_start_date(self, reference_a):
         """Test that invalid start date returns error."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
@@ -750,9 +800,9 @@ class TestListUpcomingTransitsValidation:
 
     def test_invalid_end_date(self, reference_a):
         """Test that invalid end date returns error."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
@@ -765,9 +815,9 @@ class TestListUpcomingTransitsValidation:
 
     def test_invalid_latitude(self, reference_a):
         """Test that invalid latitude returns error."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude="100",
             longitude=reference_a["longitude"]
@@ -779,9 +829,9 @@ class TestListUpcomingTransitsValidation:
 
     def test_invalid_longitude(self, reference_a):
         """Test that invalid longitude returns error."""
-        from astro_mcp.tools.transit import list_upcoming_planetary_transits
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_planetary_transits(
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude="200"
@@ -791,238 +841,118 @@ class TestListUpcomingTransitsValidation:
 
         assert "error" in data
 
+    def test_partial_birth_data_date_only(self, reference_a):
+        """Birth data must be all-or-nothing: date_time alone is rejected."""
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-class TestListUpcomingTransitsToNatal:
-    """Test list_upcoming_transits_to_natal tool."""
+        result = list_upcoming_transits(date_time=reference_a["date_time"])
 
-    def test_list_upcoming_transits_to_natal_basic(self, reference_a):
-        """Test basic list_upcoming_transits_to_natal functionality."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
+        data = json.loads(result)
+        assert "error" in data
 
-        result = list_upcoming_transits_to_natal(
+    def test_partial_birth_data_missing_longitude(self, reference_a):
+        """Birth data must be all-or-nothing: missing longitude is rejected."""
+        from astro_mcp.tools.transit import list_upcoming_transits
+
+        result = list_upcoming_transits(
             date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
+            latitude=reference_a["latitude"]
+        )
+
+        data = json.loads(result)
+        assert "error" in data
+
+
+class TestListUpcomingTransitsGeneralMode:
+    """Test list_upcoming_transits without birth data (transits as-is)."""
+
+    PLANETS = {"Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter",
+               "Saturn", "Uranus", "Neptune", "Pluto", "Chiron"}
+    MAJOR_TYPES = {"Conjunction", "Opposition", "Square", "Trine", "Sextile"}
+
+    def test_general_mode_basic(self):
+        """No birth data: major aspects among the transiting planets."""
+        from astro_mcp.tools.transit import list_upcoming_transits
+
+        result = list_upcoming_transits(
             start_date="2025-06-15",
             end_date="2025-06-17"
         )
 
         data = json.loads(result)
 
+        assert data["mode"] == "general"
+        assert "natal" not in data
+        assert "note" in data
+        assert data["total_transits"] == len(data["transits"])
+
+    def test_general_mode_entries(self):
+        """Entries must be major aspects among the 11 transiting planets."""
+        from astro_mcp.tools.transit import list_upcoming_transits
+
+        result = list_upcoming_transits(
+            start_date="2025-06-15",
+            end_date="2025-07-15"
+        )
+
+        data = json.loads(result)
+
+        assert data["transits"], "expected transiting-planet aspects in a 30-day range"
+        for transit in data["transits"]:
+            assert transit["from_object"] in self.PLANETS
+            assert transit["to_object"] in self.PLANETS
+            assert transit["type"] in self.MAJOR_TYPES
+            assert transit["orb"] <= 1.5
+
+    def test_general_mode_max_orb(self):
+        """max_orb applies in general mode too."""
+        from astro_mcp.tools.transit import list_upcoming_transits
+
+        result = list_upcoming_transits(
+            start_date="2025-06-15",
+            end_date="2025-07-15",
+            max_orb=0.5
+        )
+
+        data = json.loads(result)
+
+        for transit in data["transits"]:
+            assert transit["orb"] <= 0.5, f"Expected orb <= 0.5, got {transit['orb']}"
+
+    def test_general_mode_default_date_range(self):
+        """Default range (today to +60 days) works without birth data."""
+        from astro_mcp.tools.transit import list_upcoming_transits
+
+        result = list_upcoming_transits()
+
+        data = json.loads(result)
+
+        assert data["mode"] == "general"
         assert "transit_range" in data
-        assert "total_transits_to_natal" in data
-        assert "transits_to_natal" in data
+        assert "total_transits" in data
 
-    def test_list_upcoming_transits_to_natal_date_range(self, reference_a):
-        """Test that date range is properly set."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
+    def test_general_mode_consecutive_days_form_one_span(self):
+        """A slow aspect in orb across the whole window is listed once, as a
+        span covering the window - not one entry per sampled day."""
+        from astro_mcp.tools.transit import list_upcoming_transits
 
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            start_date="2025-06-15",
-            end_date="2025-06-20"
+        result = list_upcoming_transits(
+            start_date="2026-09-20",
+            end_date="2026-09-30"
         )
 
         data = json.loads(result)
 
-        assert data["transit_range"]["start"] == "2025-06-15"
-        assert data["transit_range"]["end"] == "2025-06-20"
-
-    def test_list_upcoming_transits_to_natal_scans_multiple_days(self, reference_a):
-        """Test that scanning multiple days returns transits for each day."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            start_date="2025-06-15",
-            end_date="2025-06-17"
-        )
-
-        data = json.loads(result)
-
-        dates = set(t["date"] for t in data["transits_to_natal"])
-        assert len(dates) > 0
-
-    def test_list_upcoming_transits_to_natal_with_aspect_filter(self, reference_a):
-        """Test list_upcoming_transits_to_natal with aspect type filter."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            start_date="2025-06-15",
-            end_date="2025-06-17",
-            aspect_filter="Conjunction"
-        )
-
-        data = json.loads(result)
-
-        for transit in data["transits_to_natal"]:
-            assert transit["type"] == "Conjunction"
-
-    def test_list_upcoming_transits_to_natal_with_max_orb(self, reference_a):
-        """Test list_upcoming_transits_to_natal with maximum orb filter."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            start_date="2025-06-15",
-            end_date="2025-06-17",
-            max_orb=2.0
-        )
-
-        data = json.loads(result)
-
-        for transit in data["transits_to_natal"]:
-            assert transit["orb"] <= 2.0
-
-    def test_list_upcoming_transits_to_natal_total_count(self, reference_a):
-        """Test that total_transits_to_natal count matches actual transits."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            start_date="2025-06-15",
-            end_date="2025-06-17"
-        )
-
-        data = json.loads(result)
-
-        assert len(data["transits_to_natal"]) == data["total_transits_to_natal"]
-
-    def test_list_upcoming_transits_to_natal_sorted_by_date(self, reference_a):
-        """Test that transits are sorted by date."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            start_date="2025-06-15",
-            end_date="2025-06-20"
-        )
-
-        data = json.loads(result)
-
-        dates = [t["date"] for t in data["transits_to_natal"]]
-        assert dates == sorted(dates), "Transits should be sorted by date"
-
-    def test_list_upcoming_transits_to_natal_structure(self, reference_a):
-        """Test that each transit has the expected structure."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            start_date="2025-06-15",
-            end_date="2025-06-17"
-        )
-
-        data = json.loads(result)
-
-        for transit in data["transits_to_natal"]:
-            assert "date" in transit
-            assert "from_object" in transit
-            assert "to_object" in transit
-            assert "type" in transit
-            assert "orb" in transit
-
-    def test_list_upcoming_transits_to_natal_default_date_range(self, reference_a):
-        """Test that default date range works."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"]
-        )
-
-        data = json.loads(result)
-
-        assert "transit_range" in data
-        assert "total_transits_to_natal" in data
-        assert "transits_to_natal" in data
-
-
-class TestListUpcomingTransitsToNatalValidation:
-    """Test validation for list_upcoming_transits_to_natal."""
-
-    def test_invalid_birth_date(self, reference_a):
-        """Test that invalid birth date returns error."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time="invalid-date",
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"]
-        )
-
-        data = json.loads(result)
-        assert "error" in data
-
-    def test_invalid_start_date(self, reference_a):
-        """Test that invalid start date returns error."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            start_date="invalid-date"
-        )
-
-        data = json.loads(result)
-        assert "error" in data
-
-    def test_invalid_end_date(self, reference_a):
-        """Test that invalid end date returns error."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            end_date="invalid-date"
-        )
-
-        data = json.loads(result)
-        assert "error" in data
-
-    def test_invalid_latitude(self, reference_a):
-        """Test that invalid latitude returns error."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude="100",
-            longitude=reference_a["longitude"]
-        )
-
-        data = json.loads(result)
-        assert "error" in data
-
-    def test_invalid_longitude(self, reference_a):
-        """Test that invalid longitude returns error."""
-        from astro_mcp.tools.transit import list_upcoming_transits_to_natal
-
-        result = list_upcoming_transits_to_natal(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude="200"
-        )
-
-        data = json.loads(result)
-        assert "error" in data
+        spans = [
+            t for t in data["transits"]
+            if t["from_object"] == "Neptune" and t["to_object"] == "Pluto"
+            and t["type"] == "Sextile"
+        ]
+        assert len(spans) == 1, f"expected one Neptune-Pluto sextile span, got {spans}"
+        span = spans[0]
+        assert span["start"] == "2026-09-20"
+        assert span["end"] == "2026-09-30"
+        assert span["orb"] <= 0.11
 
 
 # ---------------------------------------------------------------------------

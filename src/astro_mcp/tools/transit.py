@@ -5,7 +5,7 @@ from mcp.server.mcpserver import MCPServer
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, calculate_transit_to_natal_aspects, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
+from astro_mcp.utils import compact_chart_json, error_response, calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
 from astro_mcp.config import get_config
 
 
@@ -16,19 +16,26 @@ def _transits_for_date(date_str: str, latitude, longitude, aspects_to, config):
     way to pass a date, so we replace its subject with the requested moment
     (local time at the chart location, timezone geolocated by immanuel) and
     regenerate the chart data.
+
+    latitude/longitude may be None (transits without a birth chart); the
+    config's default location is used. Ecliptic planet positions — and thus
+    the aspects reported — do not depend on the location.
     """
     from immanuel import charts
 
+    lat = float(latitude) if latitude is not None else config.default_latitude
+    lon = float(longitude) if longitude is not None else config.default_longitude
+
     transit_chart = charts.Transits(
-        latitude=latitude,
-        longitude=longitude,
+        latitude=lat,
+        longitude=lon,
         aspects_to=aspects_to,
         config=config,
     )
     transit_chart._native = charts.Subject(
         date_time=date_str,
-        latitude=float(latitude),
-        longitude=float(longitude),
+        latitude=lat,
+        longitude=lon,
     )
     transit_chart.generate()
     transit_chart.set_aspects()
@@ -61,14 +68,20 @@ def create_transit_chart(
     max_orb: float | None = None,
     object_filter: str | None = None
 ) -> str:
-    """Generate a transit chart showing current (or specified) planetary positions and their aspects to a natal chart.
+    """Generate a transit chart for ONE specific moment: transiting planet positions (placed in the natal chart's houses) and their aspects to the natal chart.
 
-    This tool shows how current (or specified) planetary positions aspect a natal chart.
-    Use it for:
-    - Current conditions and timing events
+    Use this tool when:
+    - The user asks what the sky looks like right now (transit_date_time omitted = current time)
+    - The user gives a specific date/time for a transit snapshot
     - Tracking lunar transits (lunations) - set transit_date_time to the exact moment
       of a new or full moon to see where the Moon and other bodies are relative to the natal
-    - General transit analysis over any time period
+
+    Do NOT use this tool for timing questions ("what transits are coming up",
+    "when will X next aspect my natal Y", "how long does this transit last").
+    A single chart shows one moment; it cannot show when aspects start or end,
+    and you must not estimate timing or duration from the positions yourself.
+    Use list_upcoming_transits for those questions - it returns dated
+    aspects from the ephemeris over a date range.
 
     The output includes:
     - Transiting planets (decimal + DMS position, natal house)
@@ -162,10 +175,11 @@ def create_transit_chart(
 
         # Calculate transit-to-natal aspects for all major objects
         # (full-precision longitudes; .degrees would quantize to whole degrees)
-        natal_positions = {}
-        for obj in natal_chart.objects.values():
-            if obj.name in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron']:
-                natal_positions[obj.name] = obj.longitude.raw % 360
+        natal_positions = {
+            obj.name: obj.longitude.raw % 360
+            for obj in natal_chart.objects.values()
+            if obj.name in MAJOR_OBJECTS
+        }
 
         transit_natal_aspects = calculate_transit_to_natal_aspects(transit_chart, natal_positions)
 
@@ -182,6 +196,8 @@ def create_transit_chart(
 
         # Serialize compactly: transiting objects placed in the NATAL chart's
         # houses, with the filtered transit-to-natal aspects as "aspects".
+        # The note steers the calling LLM away from estimating transit timing
+        # itself from this single-moment chart.
         return compact_chart_json(
             transit_chart,
             chart_type="transit",
@@ -190,6 +206,14 @@ def create_transit_chart(
             house_overrides=assigned_houses,
             houses_chart=natal_chart,
             aspects=filtered_aspects,
+            extra={
+                "note": (
+                    f"This chart reflects the single moment {transit_dt}. "
+                    "For 'when will X happen / how long does it last / what is coming up', "
+                    "call list_upcoming_transits with start_date/end_date "
+                    "instead of estimating timing from this chart."
+                )
+            },
         )
 
     except ValueError as e:
@@ -200,57 +224,78 @@ def create_transit_chart(
         return error_response("Transit chart generation failed", f"Unexpected error: {str(e)}")
 
 
-def list_upcoming_planetary_transits(
-    date_time: str,
-    latitude: str,
-    longitude: str,
+def list_upcoming_transits(
     start_date: str | None = None,
     end_date: str | None = None,
-    house_system: str | None = None,
+    date_time: str | None = None,
+    latitude: str | None = None,
+    longitude: str | None = None,
     aspect_filter: str | None = None,
     max_orb: float | None = 1.5
 ) -> str:
-    """List upcoming transit aspects to the natal chart over a date range.
+    """List dated transit aspects over a date range (one sample per day) - the tool for transit timing questions.
 
-    This tool scans a date range (one sample per day, local midnight at the
-    chart location) and returns all significant aspects between transiting
-    planets and the natal chart. Use it to:
-    - See what transits are coming up in the next month or year
-    - Identify key transit windows for planning
-    - Track specific planets (e.g., Mars, Saturn) over time
+    This tool scans a date range and returns every significant major
+    aspect (Conjunction, Opposition, Square, Trine, Sextile). Each aspect
+    is listed once with start/end dates (the days it is within the orb)
+    and its tightest orb over that span.
+    Use it whenever the user asks:
+    - "What transits are coming up?" (default range: today to +60 days)
+    - "When will X next aspect Y?"
+    - "How long does this transit/aspect last?" (the span's start/end dates
+      are the duration)
+
+    The ephemeris does the timing calculation - do not estimate dates or
+    durations yourself from a single chart (create_transit_chart shows one
+    moment and cannot answer when/duration questions). Set
+    start_date/end_date for a specific or longer window.
+
+    Two modes:
+    - With a birth chart (date_time + latitude + longitude): transits in
+      relation to that natal chart - transiting planets aspecting natal
+      planets.
+    - Without birth data: transits as-is - major aspects among the
+      transiting planets themselves.
+
+    Provide all three birth parameters or none of them.
 
     Args:
+        start_date: Start date for scanning transits. Default: today.
+        end_date: End date for scanning transits. Default: +60 days.
         date_time: Birth date and time of the natal chart. Format 'YYYY-MM-DD HH:MM'.
+            With latitude and longitude, transits are related to this birth chart.
         latitude: Latitude of the natal chart location.
         longitude: Longitude of the natal chart location.
-        start_date: Start date for scanning transits. Default: today.
-        end_date: End date for scanning transits. Default: +365 days.
-        house_system: House system to use. Default: 'whole_sign'.
         aspect_filter: Filter by aspect types (comma-separated, e.g., "Conjunction,Square").
         max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included. Default: 1.5
 
     Returns:
-        JSON string with list of upcoming transits, each containing date, objects, aspect type, and orb
+        JSON string with transit_range, mode ('natal' or 'general'), total_transits,
+        and a list of transit spans (start, end, from_object, to_object, type, orb)
     """
-    # Validate birth date
-    valid, error = validate_date_string(date_time)
-    if not valid:
-        return error_response("Invalid birth date", error)
+    # Birth data must be all-or-nothing
+    birth_params = (date_time, latitude, longitude)
+    if any(p is not None for p in birth_params) and not all(p is not None for p in birth_params):
+        return error_response(
+            "Incomplete birth data",
+            "Provide all of date_time, latitude, and longitude to relate transits "
+            "to a birth chart, or none of them for transits as-is."
+        )
+    has_natal = all(p is not None for p in birth_params)
 
-    # Validate latitude
-    valid, error = validate_latitude(latitude)
-    if not valid:
-        return error_response("Invalid latitude", error)
+    # Validate birth data
+    if has_natal:
+        valid, error = validate_date_string(date_time)
+        if not valid:
+            return error_response("Invalid birth date", error)
 
-    # Validate longitude
-    valid, error = validate_longitude(longitude)
-    if not valid:
-        return error_response("Invalid longitude", error)
+        valid, error = validate_latitude(latitude)
+        if not valid:
+            return error_response("Invalid latitude", error)
 
-    # Validate house system if provided
-    valid, error = validate_house_system(house_system)
-    if not valid:
-        return error_response("Invalid house system", error)
+        valid, error = validate_longitude(longitude)
+        if not valid:
+            return error_response("Invalid longitude", error)
 
     # Validate date range
     today = datetime.now().date()
@@ -267,24 +312,33 @@ def list_upcoming_planetary_transits(
         if not valid:
             return error_response("Invalid end_date", error)
     else:
-        end_date = (today + timedelta(days=365)).strftime("%Y-%m-%d")
+        # 60-day default: a year-long scan produces a response that far
+        # exceeds the compact output budget (MCP clients truncate it).
+        # Longer windows are available via an explicit end_date.
+        end_date = (today + timedelta(days=60)).strftime("%Y-%m-%d")
 
     try:
         from immanuel import charts
         from datetime import date
 
-        # Build config
-        config = get_config(house_system)
+        # Build config (house system has no effect on ecliptic aspects)
+        config = get_config(None)
 
-        # Create subject (birth data)
-        native = charts.Subject(
-            date_time=date_time.replace("T", " "),
-            latitude=float(latitude),
-            longitude=float(longitude),
-        )
-
-        # Create natal chart (reference)
-        natal_chart = charts.Natal(native, config=config)
+        # Natal reference (only when birth data was provided)
+        natal_chart = None
+        natal_positions = None
+        if has_natal:
+            native = charts.Subject(
+                date_time=date_time.replace("T", " "),
+                latitude=float(latitude),
+                longitude=float(longitude),
+            )
+            natal_chart = charts.Natal(native, config=config)
+            natal_positions = {
+                obj.name: obj.longitude.raw % 360
+                for obj in natal_chart.objects.values()
+                if obj.name in MAJOR_OBJECTS
+            }
 
         # Parse aspect filter
         aspect_types = None
@@ -295,7 +349,8 @@ def list_upcoming_planetary_transits(
         start = date.fromisoformat(start_date)
         end = date.fromisoformat(end_date)
 
-        transits = []
+        # Collect daily aspect samples (key -> {date: orb})
+        samples = {}
         current_date = start
 
         while current_date <= end:
@@ -306,8 +361,15 @@ def list_upcoming_planetary_transits(
                 date_str, latitude, longitude, natal_chart, config
             )
 
-            # Get aspect details
-            aspects_list = extract_aspect_details(transit_chart)
+            if natal_positions is not None:
+                aspects_list = calculate_transit_to_natal_aspects(transit_chart, natal_positions)
+            else:
+                transit_positions = {
+                    obj.name: obj.longitude.raw % 360
+                    for obj in transit_chart.objects.values()
+                    if obj.name in MAJOR_OBJECTS
+                }
+                aspects_list = calculate_major_aspects(transit_positions)
 
             # Filter by max_orb and aspect types
             filtered = filter_aspects(
@@ -316,182 +378,65 @@ def list_upcoming_planetary_transits(
                 max_orb=max_orb
             )
 
-            # Add to results if any transits found
             for aspect in filtered:
-                transit_entry = {
-                    "date": current_date.isoformat(),
-                    **aspect
-                }
-                transits.append(transit_entry)
+                key = (aspect["from_object"], aspect["to_object"], aspect["type"])
+                orb_by_day = samples.setdefault(key, {})
+                day_iso = current_date.isoformat()
+                if day_iso in orb_by_day:
+                    orb_by_day[day_iso] = min(orb_by_day[day_iso], aspect["orb"])
+                else:
+                    orb_by_day[day_iso] = aspect["orb"]
 
             current_date += timedelta(days=1)
 
-        # Sort by date
-        transits.sort(key=lambda x: x["date"])
+        # Merge consecutive in-orb days into spans: each aspect is listed
+        # once with start/end dates (its duration) instead of one near-
+        # identical entry per sampled day, which keeps year-long scans
+        # within the compact output budget.
+        transits = []
+        for (from_obj, to_obj, aspect_type), orb_by_day in samples.items():
+            days = sorted(orb_by_day)
+            runs, run = [], [days[0]]
+            for d in days[1:]:
+                if (date.fromisoformat(d) - date.fromisoformat(run[-1])).days > 1:
+                    runs.append(run)
+                    run = [d]
+                else:
+                    run.append(d)
+            runs.append(run)
+            for run in runs:
+                transits.append({
+                    "start": run[0],
+                    "end": run[-1],
+                    "from_object": from_obj,
+                    "to_object": to_obj,
+                    "type": aspect_type,
+                    "orb": round(min(orb_by_day[d] for d in run), 2),
+                })
+
+        transits.sort(key=lambda x: (x["start"], x["from_object"], x["to_object"]))
 
         result = {
             "transit_range": {
                 "start": start_date,
                 "end": end_date
             },
+            "mode": "natal" if natal_positions is not None else "general",
             "total_transits": len(transits),
-            "transits": transits
+            "transits": transits,
         }
-
-        return json.dumps(result, indent=2)
-
-    except ValueError as e:
-        return error_response("Transit scanning failed", str(e))
-    except ImportError as e:
-        return error_response("immanuel library not available", str(e))
-    except Exception as e:
-        return error_response("Transit scanning failed", f"Unexpected error: {str(e)}")
-
-
-def list_upcoming_transits_to_natal(
-    date_time: str,
-    latitude: str,
-    longitude: str,
-    start_date: str | None = None,
-    end_date: str | None = None,
-    house_system: str | None = None,
-    aspect_filter: str | None = None,
-    max_orb: float | None = 1.5
-) -> str:
-    """List upcoming transit aspects to your natal chart over a date range.
-
-    This tool scans a date range (one sample per day, local midnight at the
-    chart location) and returns all significant aspects where transiting
-    planets aspect your natal chart points (planets, angles).
-    Use it to:
-    - See what transits are coming up that will affect your natal chart
-    - Identify key transit windows for planning major life events
-    - Track specific planets (e.g., Mars, Saturn) as they aspect your natal points
-
-    Args:
-        date_time: Birth date and time of the natal chart. Format 'YYYY-MM-DD HH:MM'.
-        latitude: Latitude of the natal chart location.
-        longitude: Longitude of the natal chart location.
-        start_date: Start date for scanning transits. Default: today.
-        end_date: End date for scanning transits. Default: +365 days.
-        house_system: House system to use. Default: 'whole_sign'.
-        aspect_filter: Filter by aspect types (comma-separated, e.g., "Conjunction,Square").
-        max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included. Default: 1.5
-
-    Returns:
-        JSON string with list of upcoming transits, each containing date, objects, aspect type, and orb
-    """
-    # Validate birth date
-    valid, error = validate_date_string(date_time)
-    if not valid:
-        return error_response("Invalid birth date", error)
-
-    # Validate latitude
-    valid, error = validate_latitude(latitude)
-    if not valid:
-        return error_response("Invalid latitude", error)
-
-    # Validate longitude
-    valid, error = validate_longitude(longitude)
-    if not valid:
-        return error_response("Invalid longitude", error)
-
-    # Validate house system if provided
-    valid, error = validate_house_system(house_system)
-    if not valid:
-        return error_response("Invalid house system", error)
-
-    # Validate date range
-    today = datetime.now().date()
-
-    if start_date:
-        valid, error = validate_date_string(start_date + " 00:00")
-        if not valid:
-            return error_response("Invalid start_date", error)
-    else:
-        start_date = today.strftime("%Y-%m-%d")
-
-    if end_date:
-        valid, error = validate_date_string(end_date + " 00:00")
-        if not valid:
-            return error_response("Invalid end_date", error)
-    else:
-        end_date = (today + timedelta(days=365)).strftime("%Y-%m-%d")
-
-    try:
-        from immanuel import charts
-        from datetime import date
-
-        # Build config
-        config = get_config(house_system)
-
-        # Create subject (birth data)
-        native = charts.Subject(
-            date_time=date_time.replace("T", " "),
-            latitude=float(latitude),
-            longitude=float(longitude),
-        )
-
-        # Create natal chart (reference)
-        natal_chart = charts.Natal(native, config=config)
-
-        # Get natal positions (full-precision longitudes)
-        natal_positions = {}
-        for obj in natal_chart.objects.values():
-            if obj.name in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron']:
-                natal_positions[obj.name] = obj.longitude.raw % 360
-
-        # Parse aspect filter
-        aspect_types = None
-        if aspect_filter:
-            aspect_types = [at.strip() for at in aspect_filter.split(",")]
-
-        # Scan date range
-        start = date.fromisoformat(start_date)
-        end = date.fromisoformat(end_date)
-
-        transits_to_natal = []
-        current_date = start
-
-        while current_date <= end:
-            # Create transit chart for this date (local midnight)
-            date_str = current_date.isoformat() + " 00:00"
-
-            transit_chart = _transits_for_date(
-                date_str, latitude, longitude, natal_chart, config
+        if natal_positions is not None:
+            result["natal"] = {
+                "date_time": date_time,
+                "latitude": float(latitude),
+                "longitude": float(longitude),
+            }
+        else:
+            result["note"] = (
+                "No birth data was provided - these are major aspects among the "
+                "transiting planets themselves (transits as-is). Provide "
+                "date_time/latitude/longitude to relate transits to a birth chart."
             )
-
-            # Calculate transit-to-natal aspects
-            transit_natal_aspects = calculate_transit_to_natal_aspects(transit_chart, natal_positions)
-
-            # Filter by max_orb and aspect types
-            filtered = filter_aspects(
-                transit_natal_aspects,
-                aspect_type=aspect_types,
-                max_orb=max_orb
-            )
-
-            # Add to results if any transits found
-            for aspect in filtered:
-                transit_entry = {
-                    "date": current_date.isoformat(),
-                    **aspect
-                }
-                transits_to_natal.append(transit_entry)
-
-            current_date += timedelta(days=1)
-
-        # Sort by date
-        transits_to_natal.sort(key=lambda x: x["date"])
-
-        result = {
-            "transit_range": {
-                "start": start_date,
-                "end": end_date
-            },
-            "total_transits_to_natal": len(transits_to_natal),
-            "transits_to_natal": transits_to_natal
-        }
 
         return json.dumps(result, indent=2)
 
@@ -509,32 +454,26 @@ def register(mcp: MCPServer):
         create_transit_chart,
         name="create_transit_chart",
         description=(
-            "Generate a transit chart showing current (or specified) planetary positions and their aspects to a natal chart. "
-            "Use this for current conditions, timing events, or tracking lunar transits (lunations). "
-            "For lunation work, set transit_date_time to the exact moment of a new or full moon you want to analyze. "
-            "The output shows transiting planets against the natal chart's houses and all transiting-to-natal aspects "
-            "with full details (type, orb)."
+            "Generate a transit chart for ONE specific moment: transiting planet positions (in the natal chart's houses) "
+            "and their aspects to the natal chart. Use for 'what is the sky like right now' (omit transit_date_time) "
+            "or a user-given date/time, and for lunation work (set transit_date_time to the exact moment of a new or full moon). "
+            "NOT for timing questions: this tool shows a single moment, so it cannot show when an aspect starts or ends - "
+            "do not estimate transit timing or duration from it. For 'what transits are coming up', 'when will X happen', "
+            "or 'how long does it last', use list_upcoming_transits, which returns dated aspects from the ephemeris."
         )
     )
 
     mcp.add_tool(
-        list_upcoming_planetary_transits,
-        name="list_upcoming_planetary_transits",
+        list_upcoming_transits,
+        name="list_upcoming_transits",
         description=(
-            "List upcoming planetary transit aspects over a date range (one sample per day at local midnight). "
-            "Use this to see what transits are coming up in the next month or year, "
-            "identify key transit windows for planning, or track specific planets over time. "
-            "Returns transit-to-natal aspects detected by the ephemeris (all configured aspect types)."
-        )
-    )
-
-    mcp.add_tool(
-        list_upcoming_transits_to_natal,
-        name="list_upcoming_transits_to_natal",
-        description=(
-            "List upcoming transit aspects to your natal chart over a date range. "
-            "Use this to see what transits are coming up that will affect your natal chart, "
-            "identify key transit windows for planning major life events, or track specific planets as they aspect your natal points. "
-            "Returns transit-to-natal aspects only (not planetary alignments)."
+            "List dated transit aspects over a date range (one sample per day; default today to +60 days). "
+            "THE tool for transit timing questions: 'what transits are coming up', 'when will X next happen', "
+            "and 'how long does it last' (each aspect is listed once with start/end dates and its tightest orb, "
+            "so the span is the duration). The ephemeris does the timing calculation - do not estimate dates or "
+            "durations yourself from a single chart. With birth data (date_time + latitude + longitude): transits in "
+            "relation to that natal chart (transiting planets aspecting natal planets). Without birth data: transits "
+            "as-is (major aspects among the transiting planets themselves). Provide all three birth parameters or none. "
+            "Set start_date/end_date for a specific or longer window."
         )
     )

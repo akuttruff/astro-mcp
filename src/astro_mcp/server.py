@@ -14,8 +14,12 @@ mcp = MCPServer(
         "You have access to precise astrological chart calculations using the immanuel-python library. "
         "Use these tools to generate natal charts, transits, solar returns, progressions, and synastry. "
         "All output is structured JSON that you must parse and interpret. "
-        "Use create_transit_chart with a specific date/time to track lunar phases (lunations) - set transit_date_time "
-        "to the exact moment of a new or full moon to see where the Moon and other bodies are relative to the natal chart. "
+        "Transit question routing: for 'what transits are coming up', 'when will X happen', or 'how long does this "
+        "transit last', use list_upcoming_transits - it returns dated aspects computed by the ephemeris over a date "
+        "range (with birth data: transits to that natal chart; without: transits as-is), so never estimate transit "
+        "timing or duration yourself from a single chart. "
+        "Use create_transit_chart only for one specific moment: 'now' (omit transit_date_time) or a user-given date/time, "
+        "e.g. the exact moment of a new or full moon for lunation work. "
         "Use whole_sign houses (default) unless the user explicitly requests another system. "
     ),
 )
