@@ -1,6 +1,9 @@
 """Synastry chart tool for astro-mcp."""
 
+from typing import Annotated
+
 from mcp.server.mcpserver import MCPServer
+from pydantic import Field
 
 from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
@@ -10,10 +13,10 @@ def register(mcp: MCPServer):
     """Register the create_synastry tool with MCPServer."""
 
     def create_synastry(
-        date_time_a: str,
+        date_time_a: Annotated[str, Field(description="Person A birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'.")],
         latitude_a: str | float,
         longitude_a: str | float,
-        date_time_b: str,
+        date_time_b: Annotated[str, Field(description="Person B birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'.")],
         latitude_b: str | float,
         longitude_b: str | float,
         house_system: str | None = None

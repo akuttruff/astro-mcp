@@ -1,15 +1,17 @@
 """Natal chart tool for astro-mcp."""
 
+from typing import Annotated
+
 from mcp.server.mcpserver import MCPServer
 
-from pydantic import TypeAdapter
+from pydantic import Field, TypeAdapter
 from astro_mcp.schemas import NatalChartParams, get_coordinates_for_params
 from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
 
 
 def create_natal_chart(
-    date_time: str,
+    date_time: Annotated[str, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'. Local time at the birthplace.")],
     house_system: str | None = None,
     time_is_dst: bool | None = None,
     timezone_offset: float | None = None,

@@ -252,9 +252,11 @@ def validate_date_string(date_str: str) -> tuple[bool, str]:
         r"^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)$", date_str
     )
     if not match:
+        # Echo the rejected value so the calling LLM can convert and retry
         return False, (
-            "Invalid date format. Expected 'YYYY-MM-DD HH:MM' with optional "
-            "seconds and fractional seconds ('T' separator also accepted)"
+            f"Invalid date format: got {date_str!r}. Convert it to "
+            "'YYYY-MM-DD HH:MM' (ISO 8601; seconds and fractional seconds, or "
+            "'T' separator, are accepted), e.g. '1984-05-10 20:44'."
         )
 
     date_part, time_part = match.groups()
@@ -277,7 +279,7 @@ def validate_date_string(date_str: str) -> tuple[bool, str]:
             return False, f"Date out of range. Supported range: 1200-01-01 to 4799-12-31"
         return True, ""
     except ValueError as e:
-        return False, f"Invalid date: {e}"
+        return False, f"Invalid date: got {date_str!r} ({e})"
 
 
 def validate_latitude(latitude_str: str) -> tuple[bool, str]:

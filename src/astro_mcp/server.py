@@ -21,6 +21,9 @@ mcp = MCPServer(
         "Use create_transit_chart only for one specific moment: 'now' (omit transit_date_time) or a user-given date/time, "
         "e.g. the exact moment of a new or full moon for lunation work. "
         "Use whole_sign houses (default) unless the user explicitly requests another system. "
+        "Date format: pass all datetimes as ISO 8601 'YYYY-MM-DD HH:MM' (e.g. '1984-05-10 20:44') and date-only "
+        "params as 'YYYY-MM-DD'. Convert natural-language dates from the user (e.g. 'May 10, 1984 8:44 PM' -> "
+        "'1984-05-10 20:44') before calling tools - free-form date strings are rejected. "
     ),
 )
 

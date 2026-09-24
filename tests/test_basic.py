@@ -90,6 +90,40 @@ def test_validate_date_string_formats():
         assert valid is False, invalid_date
         assert msg, invalid_date
 
+    # Natural-language dates are rejected (strict ISO contract), and the
+    # error must echo the rejected value and state the expected format so
+    # the calling LLM can convert and retry.
+    valid, msg = validate_date_string("May 10, 1984 8:44 PM")
+    assert valid is False
+    assert "May 10, 1984 8:44 PM" in msg
+    assert "YYYY-MM-DD HH:MM" in msg
+
+
+def test_date_params_publish_format_in_schema():
+    """LLMs only see the published input schema, so every date parameter
+    must carry its format contract as a parameter description."""
+    from mcp.server.mcpserver import MCPServer
+    from astro_mcp.tools import natal, solar_return, progressed, transit, synastry
+
+    mcp = MCPServer(name="test")
+    for mod in (natal, solar_return, progressed, transit, synastry):
+        mod.register(mcp)
+
+    date_params = {
+        "create_natal_chart": ["date_time"],
+        "create_transit_chart": ["date_time", "transit_date_time"],
+        "list_upcoming_transits": ["start_date", "end_date", "date_time"],
+        "create_solar_return": ["date_time"],
+        "create_progressed_chart": ["date_time", "target_date"],
+        "create_synastry": ["date_time_a", "date_time_b"],
+    }
+    for tool_name, params in date_params.items():
+        schema = mcp._tool_manager._tools[tool_name].fn_metadata.arg_model.model_json_schema()
+        for param in params:
+            desc = schema["properties"][param].get("description", "")
+            assert desc, f"{tool_name}.{param} has no schema description"
+            assert "YYYY-MM-DD" in desc, f"{tool_name}.{param} description lacks the date format: {desc!r}"
+
 
 def test_schemas():
     """Test schema models."""

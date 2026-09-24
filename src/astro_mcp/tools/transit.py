@@ -1,9 +1,11 @@
 """Transit chart tool for astro-mcp."""
 
 import json
+from typing import Annotated
 from mcp.server.mcpserver import MCPServer
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+from pydantic import Field
 
 from astro_mcp.utils import compact_chart_json, error_response, calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
 from astro_mcp.config import get_config
@@ -59,10 +61,10 @@ def _local_now_str(latitude, longitude) -> str:
 
 
 def create_transit_chart(
-    date_time: str,
+    date_time: Annotated[str, Field(description="Birth date and time of the natal chart in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'.")],
     latitude: str | float,
     longitude: str | float,
-    transit_date_time: str | None = None,
+    transit_date_time: Annotated[str | None, Field(description="Transit date and time in ISO 8601: 'YYYY-MM-DD HH:MM'. Omit for 'now'.")] = None,
     house_system: str | None = None,
     aspect_type: str | None = None,
     max_orb: float | None = None,
@@ -230,9 +232,9 @@ def create_transit_chart(
 
 
 def list_upcoming_transits(
-    start_date: str | None = None,
-    end_date: str | None = None,
-    date_time: str | None = None,
+    start_date: Annotated[str | None, Field(description="First date of the transit scan, 'YYYY-MM-DD' (date only).")] = None,
+    end_date: Annotated[str | None, Field(description="Last date of the transit scan, 'YYYY-MM-DD' (date only).")] = None,
+    date_time: Annotated[str | None, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional). All-or-nothing with latitude and longitude.")] = None,
     latitude: str | float | None = None,
     longitude: str | float | None = None,
     aspect_filter: str | None = None,

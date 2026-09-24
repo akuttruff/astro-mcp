@@ -1,13 +1,16 @@
 """Solar return chart tool for astro-mcp."""
 
+from typing import Annotated
+
 from mcp.server.mcpserver import MCPServer
+from pydantic import Field
 
 from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
 
 
 def create_solar_return(
-    date_time: str,
+    date_time: Annotated[str, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'. Local time at the birthplace.")],
     latitude: str | float,
     longitude: str | float,
     year: int,
