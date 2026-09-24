@@ -955,6 +955,84 @@ class TestListUpcomingTransitsGeneralMode:
         assert span["orb"] <= 0.11
 
 
+class TestListUpcomingTransitsForecast:
+    """Yearly-forecast support: the response must stay within the MCP
+    client truncation budget (~25KB). This pins the compact single-line
+    serialization, the object_filter param, and the self-adaptive trim of
+    high-frequency Moon/Mercury spans for oversized results."""
+
+    def _scan(self, reference_a, end="2025-06-21", **kwargs):
+        from astro_mcp.tools.transit import list_upcoming_transits
+
+        return list_upcoming_transits(
+            date_time=reference_a["date_time"],
+            latitude=reference_a["latitude"],
+            longitude=reference_a["longitude"],
+            start_date="2025-06-15",
+            end_date=end,
+            **kwargs
+        )
+
+    def test_output_is_single_line_compact(self, reference_a):
+        result = self._scan(reference_a)
+        assert "\n" not in result
+        assert json.loads(result)["mode"] == "natal"
+
+    def test_no_omission_within_budget(self, reference_a):
+        """A 7-day scan fits the budget, so nothing may be auto-trimmed
+        and spans stay in the readable object form."""
+        data = json.loads(self._scan(reference_a))
+        assert "omitted" not in data
+        assert "span_fields" not in data
+        assert all(isinstance(t, dict) for t in data["transits"])
+        assert data["total_transits"] == len(data["transits"])
+
+    def test_object_filter_keeps_only_listed_objects(self, reference_a):
+        """Names are matched case-insensitively; the echo is normalized."""
+        data = json.loads(self._scan(reference_a, object_filter="moon,mercury"))
+        assert data["object_filter"] == ["Mercury", "Moon"]
+        from_objects = {t["from_object"] for t in data["transits"]}
+        assert from_objects <= {"Moon", "Mercury"}
+
+    def test_object_filter_rejects_unknown_object(self, reference_a):
+        data = json.loads(self._scan(reference_a, object_filter="Moon,PaleMoon"))
+        assert "error" in data
+        assert "PaleMoon" in data["detail"]
+        assert "Chiron" in data["detail"]  # recognized objects are listed
+
+    def test_auto_trim_when_over_budget(self, reference_a, monkeypatch):
+        """When the full list exceeds the budget, Moon/Mercury spans are
+        dropped, the response reports exactly what was omitted, and the
+        spans fall back to the compact positional-array encoding."""
+        import astro_mcp.tools.transit as transit_module
+
+        monkeypatch.setattr(transit_module, "_MAX_RESPONSE_CHARS", 500)
+        data = json.loads(self._scan(reference_a))
+
+        assert "omitted" in data
+        assert data["omitted"]["objects"] == ["Mercury", "Moon"]
+        assert data["omitted"]["spans"]["Moon"] >= 1
+        assert "object_filter" in data["omitted"]["hint"]
+        assert data["span_fields"] == ["start", "end", "from_object", "to_object", "type", "orb"]
+        assert all(isinstance(t, list) and len(t) == 6 for t in data["transits"])
+        from_objects = {t[2] for t in data["transits"]}
+        assert from_objects.isdisjoint({"Moon", "Mercury"})
+        assert data["total_transits"] == len(data["transits"])
+
+    def test_explicit_filter_disables_auto_trim(self, reference_a, monkeypatch):
+        """An explicit object_filter (even for fast objects) is never
+        auto-trimmed - explicit beats implicit - but the compact encoding
+        still applies when the result is oversized."""
+        import astro_mcp.tools.transit as transit_module
+
+        monkeypatch.setattr(transit_module, "_MAX_RESPONSE_CHARS", 500)
+        data = json.loads(self._scan(reference_a, object_filter="Moon"))
+        assert "omitted" not in data
+        assert "span_fields" in data
+        from_objects = {t[2] for t in data["transits"]}
+        assert from_objects <= {"Moon"}
+
+
 # ---------------------------------------------------------------------------
 # Regression tests: exact transits must not be missed
 #

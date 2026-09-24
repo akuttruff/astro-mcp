@@ -10,6 +10,11 @@ from pydantic import Field
 from astro_mcp.utils import compact_chart_json, error_response, calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
 from astro_mcp.config import get_config
 
+# MCP clients truncate large tool responses (~25KB). Keep list output
+# under this budget; when it is exceeded, high-frequency fast-object spans
+# are auto-omitted and reported (see list_upcoming_transits).
+_MAX_RESPONSE_CHARS = 20000
+
 
 def _transits_for_date(date_str: str, latitude, longitude, aspects_to, config):
     """Build an immanuel Transits chart for a specific local date/time.
@@ -238,6 +243,7 @@ def list_upcoming_transits(
     latitude: str | float | None = None,
     longitude: str | float | None = None,
     aspect_filter: str | None = None,
+    object_filter: Annotated[str | None, Field(description="Comma-separated transiting objects to include, e.g. 'Moon,Mercury' or 'Sun,Mars,Pluto'. Valid names: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron. If omitted, all objects are included; oversized results auto-omit Moon and Mercury (see the 'omitted' field in the response).")] = None,
     max_orb: float | None = 1.5
 ) -> str:
     """List dated transit aspects over a date range (one sample per day) - the tool for transit timing questions.
@@ -274,11 +280,17 @@ def list_upcoming_transits(
         latitude: Latitude of the natal chart location.
         longitude: Longitude of the natal chart location.
         aspect_filter: Filter by aspect types (comma-separated, e.g., "Conjunction,Square").
+        object_filter: Filter by transiting objects (comma-separated, e.g., "Moon,Mercury").
         max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included. Default: 1.5
 
     Returns:
-        JSON string with transit_range, mode ('natal' or 'general'), total_transits,
-        and a list of transit spans (start, end, from_object, to_object, type, orb)
+        Single-line JSON string with transit_range, mode ('natal' or
+        'general'), total_transits, and transits. When the result fits the
+        response size budget, each transit is an object with (start, end,
+        from_object, to_object, type, orb). Oversized results are condensed:
+        high-frequency Moon/Mercury spans are auto-omitted (reported in
+        'omitted'), and if still oversized the spans are re-encoded as
+        positional arrays matching the 'span_fields' legend.
     """
     # The schema accepts coordinates as numbers (LLMs often send JSON
     # numbers); normalize to str for the string-based validators below.
@@ -326,9 +338,9 @@ def list_upcoming_transits(
         if not valid:
             return error_response("Invalid end_date", error)
     else:
-        # 60-day default: a year-long scan produces a response that far
-        # exceeds the compact output budget (MCP clients truncate it).
-        # Longer windows are available via an explicit end_date.
+        # 60-day default. Longer windows (a full year is a common forecast
+        # ask) are supported via an explicit end_date; oversized results are
+        # auto-trimmed to the response budget (see _MAX_RESPONSE_CHARS).
         end_date = (today + timedelta(days=60)).strftime("%Y-%m-%d")
 
     try:
@@ -358,6 +370,23 @@ def list_upcoming_transits(
         aspect_types = None
         if aspect_filter:
             aspect_types = [at.strip() for at in aspect_filter.split(",")]
+
+        # Parse object filter (which transiting objects to include).
+        # Names are matched case-insensitively against MAJOR_OBJECTS; any
+        # unrecognized name is an error that lists the valid ones.
+        object_names = None
+        if object_filter:
+            lookup = {name.lower(): name for name in MAJOR_OBJECTS}
+            object_names = set()
+            for raw in object_filter.split(","):
+                name = lookup.get(raw.strip().lower())
+                if name is None:
+                    return error_response(
+                        "Invalid object_filter",
+                        f"Unrecognized object: {raw.strip()!r}. "
+                        f"Recognized objects: {', '.join(MAJOR_OBJECTS)}"
+                    )
+                object_names.add(name)
 
         # Scan date range
         start = date.fromisoformat(start_date)
@@ -430,6 +459,10 @@ def list_upcoming_transits(
 
         transits.sort(key=lambda x: (x["start"], x["from_object"], x["to_object"]))
 
+        # Explicit object filter wins over the automatic trimming below
+        if object_names is not None:
+            transits = [t for t in transits if t["from_object"] in object_names]
+
         result = {
             "transit_range": {
                 "start": start_date,
@@ -439,6 +472,8 @@ def list_upcoming_transits(
             "total_transits": len(transits),
             "transits": transits,
         }
+        if object_names is not None:
+            result["object_filter"] = sorted(object_names)
         if natal_positions is not None:
             result["natal"] = {
                 "date_time": date_time,
@@ -452,7 +487,49 @@ def list_upcoming_transits(
                 "date_time/latitude/longitude to relate transits to a birth chart."
             )
 
-        return json.dumps(result, indent=2)
+        # Single-line compact JSON keeps responses small for the LLM
+        payload = json.dumps(result, separators=(",", ":"))
+
+        # Self-adaptive size control: MCP clients truncate large responses
+        # (~25KB), so oversized results are condensed in two tiers:
+        if len(payload) > _MAX_RESPONSE_CHARS:
+            # Tier 1: drop the most frequent, short-lived spans (transiting
+            # Moon and Mercury) and report exactly what was omitted and how
+            # to get it back. An explicit object_filter disables this tier.
+            # Filtering on from_object is safe in both modes: in natal mode
+            # it is the transiting planet; in general mode the faster object
+            # always sorts first in MAJOR_OBJECTS order, so fast-driven
+            # pairs are caught too.
+            if object_names is None:
+                fast_objects = ("Moon", "Mercury")
+                omitted = {}
+                for t in transits:
+                    if t["from_object"] in fast_objects:
+                        omitted[t["from_object"]] = omitted.get(t["from_object"], 0) + 1
+                if omitted:
+                    transits = [t for t in transits if t["from_object"] not in fast_objects]
+                    result["total_transits"] = len(transits)
+                    result["transits"] = transits
+                    result["omitted"] = {
+                        "objects": sorted(omitted),
+                        "spans": omitted,
+                        "reason": "the full list exceeded the response size budget",
+                        "hint": "pass object_filter (e.g. 'Moon,Mercury') to include "
+                                "these objects, or narrow the range or lower max_orb",
+                    }
+                    payload = json.dumps(result, separators=(",", ":"))
+
+            # Tier 2: re-encode spans as positional arrays (much smaller
+            # than repeated object keys), documented by 'span_fields'.
+            if len(payload) > _MAX_RESPONSE_CHARS:
+                result["transits"] = [
+                    [t["start"], t["end"], t["from_object"], t["to_object"], t["type"], t["orb"]]
+                    for t in transits
+                ]
+                result["span_fields"] = ["start", "end", "from_object", "to_object", "type", "orb"]
+                payload = json.dumps(result, separators=(",", ":"))
+
+        return payload
 
     except ValueError as e:
         return error_response("Transit scanning failed", str(e))
@@ -488,6 +565,9 @@ def register(mcp: MCPServer):
             "durations yourself from a single chart. With birth data (date_time + latitude + longitude): transits in "
             "relation to that natal chart (transiting planets aspecting natal planets). Without birth data: transits "
             "as-is (major aspects among the transiting planets themselves). Provide all three birth parameters or none. "
-            "Set start_date/end_date for a specific or longer window."
+            "Set start_date/end_date for a specific or longer window. Yearly forecasts are supported: if the full "
+            "list would exceed the response size budget, high-frequency Moon and Mercury aspects are auto-omitted "
+            "(reported in the response's 'omitted' field) and the spans are re-encoded as compact positional arrays "
+            "(see 'span_fields'); pass object_filter to include specific objects, or narrow the range / lower max_orb."
         )
     )
