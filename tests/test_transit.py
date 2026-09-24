@@ -2,6 +2,7 @@
 
 import json
 import os
+from datetime import date, datetime, timedelta
 
 import pytest
 
@@ -1013,8 +1014,8 @@ class TestListUpcomingTransitsForecast:
         assert data["omitted"]["objects"] == ["Mercury", "Moon"]
         assert data["omitted"]["spans"]["Moon"] >= 1
         assert "object_filter" in data["omitted"]["hint"]
-        assert data["span_fields"] == ["start", "end", "from_object", "to_object", "type", "orb"]
-        assert all(isinstance(t, list) and len(t) == 6 for t in data["transits"])
+        assert data["span_fields"] == ["start", "end", "from_object", "to_object", "type", "orb", "exact"]
+        assert all(isinstance(t, list) and len(t) == 7 for t in data["transits"])
         from_objects = {t[2] for t in data["transits"]}
         assert from_objects.isdisjoint({"Moon", "Mercury"})
         assert data["total_transits"] == len(data["transits"])
@@ -1031,6 +1032,201 @@ class TestListUpcomingTransitsForecast:
         assert "span_fields" in data
         from_objects = {t[2] for t in data["transits"]}
         assert from_objects <= {"Moon"}
+
+
+class TestExactAspectMoments:
+    """Exact-aspect refinement (on by default): list spans carry 'exact'
+    (local moment the aspect is exact) and snapshot aspects carry
+    'exact_at'. Refinement is a bisection on raw Swiss-Ephemeris queries
+    bracketed by the scan's own midnight samples, so the correctness
+    check is: recompute the aspect at the reported moment and require a
+    tight orb."""
+
+    def _natal_setup(self, reference_a):
+        """Natal chart + the same derived objects the tools use."""
+        from immanuel import charts
+        from astro_mcp.config import get_config
+        from astro_mcp.tools.transit import _chart_tz, _object_ids
+        from astro_mcp.utils import MAJOR_OBJECTS
+
+        config = get_config(None)
+        native = charts.Subject(
+            date_time=reference_a["date_time"],
+            latitude=float(reference_a["latitude"]),
+            longitude=float(reference_a["longitude"]),
+        )
+        natal = charts.Natal(native, config=config)
+        natal_positions = {
+            obj.name: obj.longitude.raw % 360
+            for obj in natal.objects.values()
+            if obj.name in MAJOR_OBJECTS
+        }
+        return (
+            natal,
+            natal_positions,
+            _object_ids(natal),
+            _chart_tz(reference_a["latitude"], reference_a["longitude"]),
+            config,
+        )
+
+    def test_bisect_finds_zero(self):
+        from astro_mcp.tools.transit import _bisect
+
+        f = lambda jd: jd - 100.5
+        assert abs(_bisect(f, 100.0, 101.0) - 100.5) < 1e-4
+        assert _bisect(f, 101.0, 102.0) is None  # no sign change
+
+    def test_signed_orb_matches_aspect_orb(self):
+        """|signed orb| must equal the orb _aspects_between() reports, on
+        both sides of the pair (_aspect_side picks the side)."""
+        from astro_mcp.tools.transit import _aspect_side, _signed_orb
+        from astro_mcp.utils import MAJOR_ASPECTS, _aspects_between
+
+        cases = (
+            (100.0, 40.2, "Sextile"),    # + side
+            (40.2, 100.0, "Sextile"),    # - side
+            (200.0, 109.8, "Square"),
+            (10.0, 200.0, "Opposition"),
+            (50.0, 49.7, "Conjunction"),
+        )
+        for lon_a, lon_b, aspect_name in cases:
+            angle = MAJOR_ASPECTS[aspect_name][0]
+            expected = dict(_aspects_between(lon_a, lon_b))[aspect_name]
+            eps = _aspect_side(lon_a, lon_b, angle)
+            got = abs(_signed_orb(lon_a, lon_b, angle, eps))
+            assert abs(got - expected) < 1e-9, (aspect_name, got, expected)
+
+    def test_list_spans_carry_exact_moments(self, reference_a):
+        from astro_mcp.tools.transit import list_upcoming_transits, _transits_for_date
+        from astro_mcp.utils import calculate_transit_to_natal_aspects
+
+        natal, natal_positions, ids, tz, config = self._natal_setup(reference_a)
+        data = json.loads(list_upcoming_transits(
+            date_time=reference_a["date_time"],
+            latitude=reference_a["latitude"],
+            longitude=reference_a["longitude"],
+            start_date="2025-06-15",
+            end_date="2025-07-15",
+        ))
+        assert data["transits"], "no spans in test window"
+        for span in data["transits"]:
+            assert "exact" in span
+            if span["exact"] is None:
+                continue
+            exact_dt = datetime.fromisoformat(span["exact"])
+            # The bracket reaches one day before the span start (a clipped
+            # span can still have its exact moment just outside the window).
+            assert (date.fromisoformat(span["start"]) - timedelta(days=1)
+                    <= exact_dt.date()
+                    <= date.fromisoformat(span["end"]) + timedelta(days=1)), span
+            chart = _transits_for_date(
+                span["exact"], reference_a["latitude"],
+                reference_a["longitude"], natal, config
+            )
+            match = [
+                a for a in calculate_transit_to_natal_aspects(chart, natal_positions)
+                if (a["from_object"], a["to_object"], a["type"])
+                == (span["from_object"], span["to_object"], span["type"])
+            ]
+            assert match, f"aspect missing at exact moment: {span}"
+            assert match[0]["orb"] <= 0.1, f"not exact at reported moment: {span}"
+        # Spans fully inside the window must be refined (their crossing
+        # cannot fall outside their own bracket).
+        window = data["transit_range"]
+        interior = [s for s in data["transits"]
+                    if s["start"] != window["start"] and s["end"] != window["end"]]
+        assert interior, "no interior spans in test window"
+        assert all(s["exact"] for s in interior), "interior span without exact"
+
+    def test_exact_null_when_crossing_outside_window(self, reference_a):
+        from astro_mcp.tools.transit import list_upcoming_transits, _refine_span_exact
+
+        natal, natal_positions, ids, tz, config = self._natal_setup(reference_a)
+        data = json.loads(list_upcoming_transits(
+            date_time=reference_a["date_time"],
+            latitude=reference_a["latitude"],
+            longitude=reference_a["longitude"],
+            start_date="2025-06-15",
+            end_date="2025-07-15",
+        ))
+        span = next(s for s in data["transits"] if s["exact"])
+        exact_day = date.fromisoformat(span["exact"][:10])
+
+        # 10-12 days before the crossing the aspect sits far out of orb on
+        # one side: no sign change in the bracket, so no moment is reported.
+        early = [str(exact_day + timedelta(days=off)) for off in (-12, -11, -10)]
+        assert _refine_span_exact(
+            early, span["from_object"], span["to_object"], span["type"],
+            ids, natal_positions, tz
+        ) is None
+
+    def test_transit_chart_aspects_carry_exact_at(self, reference_a):
+        from astro_mcp.tools.transit import create_transit_chart, _transits_for_date
+        from astro_mcp.utils import calculate_transit_to_natal_aspects
+
+        natal, natal_positions, ids, tz, config = self._natal_setup(reference_a)
+        snapshot = "2025-06-20 12:00"
+        data = json.loads(create_transit_chart(
+            date_time=reference_a["date_time"],
+            latitude=reference_a["latitude"],
+            longitude=reference_a["longitude"],
+            transit_date_time=snapshot,
+        ))
+        aspects = data["aspects"]
+        assert aspects, "no aspects in snapshot"
+        for aspect in aspects:
+            assert "exact_at" in aspect
+            if aspect["exact_at"] is None:
+                continue
+            exact_dt = datetime.fromisoformat(aspect["exact_at"])
+            delta = abs((exact_dt - datetime.fromisoformat(snapshot)).total_seconds())
+            assert delta <= 180 * 86400, f"exact_at beyond search radius: {aspect}"
+            chart = _transits_for_date(
+                aspect["exact_at"], reference_a["latitude"],
+                reference_a["longitude"], natal, config
+            )
+            match = [
+                a for a in calculate_transit_to_natal_aspects(chart, natal_positions)
+                if (a["from_object"], a["to_object"], a["type"])
+                == (aspect["from_object"], aspect["to_object"], aspect["type"])
+            ]
+            assert match, f"aspect missing at exact_at: {aspect}"
+            assert match[0]["orb"] <= 0.1, f"not exact at exact_at: {aspect}"
+        assert any(a["exact_at"] for a in aspects), "no refined moments"
+
+    def test_general_mode_spans_carry_exact(self):
+        """Without birth data the refinement runs between two moving
+        objects (two ephemeris queries per bisection step)."""
+        from astro_mcp.tools.transit import list_upcoming_transits, _transits_for_date
+        from astro_mcp.config import get_config
+        from astro_mcp.utils import MAJOR_OBJECTS, calculate_major_aspects
+
+        data = json.loads(list_upcoming_transits(
+            start_date="2025-06-15",
+            end_date="2025-07-15",
+        ))
+        assert data["mode"] == "general"
+        config = get_config(None)
+        checked = 0
+        for span in data["transits"]:
+            if span["exact"] is None:
+                continue
+            checked += 1
+            chart = _transits_for_date(span["exact"], None, None, None, config)
+            positions = {
+                obj.name: obj.longitude.raw % 360
+                for obj in chart.objects.values()
+                if obj.name in MAJOR_OBJECTS
+            }
+            match = [
+                a for a in calculate_major_aspects(positions)
+                if {a["from_object"], a["to_object"]}
+                == {span["from_object"], span["to_object"]}
+                and a["type"] == span["type"]
+            ]
+            assert match, f"aspect missing at exact moment: {span}"
+            assert match[0]["orb"] <= 0.1, f"not exact at reported moment: {span}"
+        assert checked, "no refined moments in general-mode scan"
 
 
 # ---------------------------------------------------------------------------
