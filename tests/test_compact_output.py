@@ -86,10 +86,10 @@ class TestSizeTiersPreferLosslessCompaction:
         assert "omitted" not in data
 
     def test_an_oversized_range_compacts_before_it_drops(self):
-        # Four months: over the budget as named objects, but small enough that
-        # positional encoding alone brings it back under.
+        # Eight months: over the budget as named objects, but small enough
+        # that positional encoding alone brings it back under.
         data = json.loads(list_upcoming_transits(
-            start_date="2026-09-25", end_date="2027-01-25", **self.BIRTH))
+            start_date="2026-09-25", end_date="2027-05-25", **self.BIRTH))
         # Compaction happened...
         assert data["span_fields"] == [
             "start", "end", "from_object", "to_object", "type", "orb", "exact",
@@ -105,9 +105,10 @@ class TestSizeTiersPreferLosslessCompaction:
             start_date="2026-09-25", end_date="2027-09-25", **self.BIRTH))
         assert "span_fields" in data, "should compact before omitting"
         assert "omitted" in data
-        assert data["omitted"]["objects"] == ["Mercury", "Moon"]
-        # The caller is told what went and how to get it back.
-        assert data["omitted"]["spans"]["Moon"] > 0
+        # The Moon is excluded earlier, by the fast-body horizon, so only
+        # Mercury is left for the budget tier to drop.
+        assert data["omitted"]["objects"] == ["Mercury"]
+        assert data["omitted"]["spans"]["Mercury"] > 0
         assert "object_filter" in data["omitted"]["hint"]
 
     def test_an_explicit_filter_is_respected(self):

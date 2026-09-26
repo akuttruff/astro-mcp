@@ -84,6 +84,61 @@ def _local_now_str(latitude, longitude) -> str:
 # samples the scan already computed.
 # ---------------------------------------------------------------------------
 
+# The Moon moves ~13 degrees a day, so at the default 1.5 degree orb an
+# aspect of hers lasts only about five hours. Once-a-day sampling therefore
+# misses most lunar contacts outright and reports the survivors -- the ones
+# that happen to straddle midnight -- as if they lasted a day. Sampling her
+# separately at this step catches them; the ephemeris queries cost
+# microseconds each, so the finer pass is effectively free.
+FAST_BODIES = {'Moon': 2}  # name -> sampling step in hours
+
+# Beyond this horizon a fast body is left out of the scan unless explicitly
+# asked for. Sampled properly the Moon aspects something every few hours, so
+# over two months she is 80% of the spans and drowns everything slower. The
+# old behaviour reported a tenth of her contacts, which was not a filter but
+# an accident of once-a-day sampling: a wrong number that looked like a
+# short list. Better to be accurate when asked and quiet when not.
+FAST_BODY_HORIZON_DAYS = 10
+
+
+def _sample_fast_body(samples: dict, name: str, step_hours: int,
+                      natal_positions: dict, ids: dict[str, int],
+                      start: date, end: date, tz,
+                      aspect_types, max_orb) -> None:
+    """Add sub-daily samples for a fast body into the daily sample map.
+
+    Writes into the same {key: {day: orb}} structure the daily scan builds,
+    so span merging and exactness refinement are unchanged -- this only
+    stops fast contacts being missed between midnights.
+    """
+    from immanuel.tools import ephemeris
+    from astro_mcp.utils import _aspects_between
+
+    object_id = ids.get(name)
+    if object_id is None:
+        return
+
+    base = datetime(start.year, start.month, start.day, tzinfo=tz)
+    total_hours = ((end - start).days + 1) * 24
+
+    for hour in range(0, total_hours, step_hours):
+        moment = base + timedelta(hours=hour)
+        longitude = ephemeris.get_planet(object_id, _jd_of(moment))["lon"] % 360
+        day_iso = moment.date().isoformat()
+
+        for natal_name, natal_longitude in natal_positions.items():
+            for aspect_name, orb in _aspects_between(
+                longitude, natal_longitude, name, natal_name
+            ):
+                if aspect_types and aspect_name not in aspect_types:
+                    continue
+                if max_orb is not None and orb > max_orb:
+                    continue
+                by_day = samples.setdefault((name, natal_name, aspect_name), {})
+                previous = by_day.get(day_iso)
+                by_day[day_iso] = orb if previous is None else min(previous, orb)
+
+
 def _object_ids(chart) -> dict[str, int]:
     """Major object name -> immanuel object id, for raw ephemeris queries.
 
@@ -608,6 +663,15 @@ def list_upcoming_transits(
         start = date.fromisoformat(start_date)
         end = date.fromisoformat(end_date)
 
+        # Fast bodies are in scope for short windows, or when asked for by
+        # name; over longer ranges they are excluded and reported.
+        span_days = (end - start).days
+        excluded_fast = {
+            name for name in FAST_BODIES
+            if span_days > FAST_BODY_HORIZON_DAYS
+            and (object_names is None or name not in object_names)
+        }
+
         # Collect daily aspect samples (key -> {date: orb})
         samples = {}
         current_date = start
@@ -641,6 +705,8 @@ def list_upcoming_transits(
             )
 
             for aspect in filtered:
+                if aspect["from_object"] in excluded_fast:
+                    continue
                 key = (aspect["from_object"], aspect["to_object"], aspect["type"])
                 orb_by_day = samples.setdefault(key, {})
                 day_iso = current_date.isoformat()
@@ -650,6 +716,18 @@ def list_upcoming_transits(
                     orb_by_day[day_iso] = aspect["orb"]
 
             current_date += timedelta(days=1)
+
+        # Fast bodies need a finer pass; see FAST_BODIES.
+        if natal_positions is not None and object_ids is not None:
+            for fast_name, step_hours in FAST_BODIES.items():
+                if fast_name in excluded_fast:
+                    continue
+                if object_names is not None and fast_name not in object_names:
+                    continue
+                _sample_fast_body(
+                    samples, fast_name, step_hours, natal_positions, object_ids,
+                    start, end, tz, aspect_types, max_orb,
+                )
 
         # Merge consecutive in-orb days into spans: each aspect is listed
         # once with start/end dates (its duration) instead of one near-
@@ -697,6 +775,17 @@ def list_upcoming_transits(
             "total_transits": len(transits),
             "transits": transits,
         }
+        if excluded_fast:
+            # Silence here would read as "no lunar transits", which is never
+            # true over a long window.
+            result["excluded"] = {
+                "objects": sorted(excluded_fast),
+                "reason": (
+                    f"sampled properly these aspect something every few hours, so over "
+                    f"{span_days} days they would outnumber everything slower"
+                ),
+                "hint": "pass object_filter (e.g. 'Moon') or narrow the range to include them",
+            }
         if object_names is not None:
             result["object_filter"] = sorted(object_names)
         if natal_positions is not None:
@@ -759,6 +848,19 @@ def list_upcoming_transits(
                                 "these objects, or narrow the range or lower max_orb",
                     }
                     payload = json.dumps(result, separators=(",", ":"), ensure_ascii=False)
+
+            # An explicit object_filter disables the omission tier, which is
+            # right -- the caller asked for those objects -- but the client
+            # will truncate what it cannot carry, so say so rather than
+            # returning something that arrives half-eaten.
+            if len(payload) > _MAX_RESPONSE_CHARS:
+                result["warning"] = (
+                    f"This response is {len(payload)} characters and may be truncated "
+                    f"by the client (budget {_MAX_RESPONSE_CHARS}). Narrow the date "
+                    f"range, raise max_orb selectivity, or drop fast objects from "
+                    f"object_filter."
+                )
+                payload = json.dumps(result, separators=(",", ":"), ensure_ascii=False)
 
         return payload
 
