@@ -517,6 +517,14 @@ def extract_aspect_details(chart: Any) -> list[dict]:
                 # Clean up any None values
                 aspect_info = {k: v for k, v in aspect_info.items() if v is not None}
 
+                # immanuel applies one orb to every pair, so hold its results
+                # to the same per-body allowance the transit paths use.
+                # Without this the weighting would apply to transits but not
+                # to natal, progressed, solar return or synastry charts.
+                limit = orb_for(str(getattr(aspect, 'type', None)), from_name, to_name)
+                if limit is not None and actual_orb is not None and actual_orb > limit:
+                    continue
+
                 aspects_list.append(aspect_info)
 
     return aspects_list
@@ -540,7 +548,9 @@ MAJOR_OBJECTS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn',
 # angle itself. Including both would double every angular contact.
 NATAL_TRANSIT_TARGETS = MAJOR_OBJECTS + ['Asc', 'MC', 'True North Node']
 
-# Major aspects: name -> (exact angle, detection orb in degrees)
+# Major aspects: name -> (exact angle, base detection orb in degrees).
+# The orb here is the widest case; the bodies involved narrow it -- see
+# ORB_WEIGHTS and orb_for().
 MAJOR_ASPECTS = {
     'Conjunction': (0, 10),
     'Opposition': (180, 10),
@@ -549,21 +559,82 @@ MAJOR_ASPECTS = {
     'Sextile': (60, 6),
 }
 
+# How much of the base orb each body is allowed.
+#
+# A single orb per aspect type -- the same 10° conjunction for Sun-Moon as for
+# Chiron-Neptune -- distorts in both directions at once. Two slow bodies stay
+# within 8° of each other for *years*, so a wide orb turns a permanent
+# condition into a dated "transit" carrying no timing information. The Moon,
+# conversely, aspects something almost constantly at 10°, burying the rest of
+# a forecast in noise.
+#
+# These are the common Western weightings: luminaries widest, personal
+# planets full, social planets slightly reduced, outer planets and Chiron
+# tight, and the computed points (angles, nodes) tight because their accuracy
+# depends on an exact birth time.
+ORB_WEIGHTS = {
+    'Sun': 1.0,
+    'Moon': 1.0,
+    'Mercury': 0.8,
+    'Venus': 0.8,
+    'Mars': 0.8,
+    'Jupiter': 0.7,
+    'Saturn': 0.7,
+    'Uranus': 0.5,
+    'Neptune': 0.5,
+    'Pluto': 0.5,
+    'Chiron': 0.4,
+    'Asc': 0.6,
+    'MC': 0.6,
+    'True North Node': 0.4,
+    'True South Node': 0.4,
+}
 
-def _aspects_between(longitude_a: float, longitude_b: float) -> list[tuple[str, float]]:
+# Anything unlisted gets the tighter treatment rather than the wider one:
+# an unknown point should not generate more noise than a known planet.
+DEFAULT_ORB_WEIGHT = 0.5
+
+
+def orb_for(aspect_name: str, object_a: str, object_b: str) -> float | None:
+    """Detection orb for this aspect between these two bodies.
+
+    The narrower of the two bodies governs: a Moon-Pluto contact is held to
+    Pluto's orb, because the slow body is what makes the contact meaningful
+    and what keeps it from lasting months.
+
+    Returns None for aspects we hold no opinion on -- immanuel also reports
+    minor aspects (Quincunx, Semisextile, ...) which keep its own orbs.
+    """
+    entry = MAJOR_ASPECTS.get(aspect_name)
+    if entry is None:
+        return None
+    base = entry[1]
+    weight = min(
+        ORB_WEIGHTS.get(object_a, DEFAULT_ORB_WEIGHT),
+        ORB_WEIGHTS.get(object_b, DEFAULT_ORB_WEIGHT),
+    )
+    return base * weight
+
+
+def _aspects_between(longitude_a: float, longitude_b: float,
+                     object_a: str = '', object_b: str = '') -> list[tuple[str, float]]:
     """Major aspects between two ecliptic longitudes (degrees).
 
-    Returns (aspect_name, orb) pairs for every major aspect within its
-    detection orb. Orbs come from full-precision longitudes.
+    Returns (aspect_name, orb) pairs for every major aspect within the orb
+    allowed for those two bodies. Orbs come from full-precision longitudes.
+    Names are optional so existing callers keep working; without them the
+    base orb applies.
     """
     diff = abs(longitude_a - longitude_b)
     if diff > 180:
         diff = 360 - diff
-    return [
-        (name, abs(diff - angle))
-        for name, (angle, orb) in MAJOR_ASPECTS.items()
-        if abs(diff - angle) <= orb
-    ]
+    found = []
+    for name, (angle, base) in MAJOR_ASPECTS.items():
+        separation = abs(diff - angle)
+        allowed = (orb_for(name, object_a, object_b) or base) if (object_a or object_b) else base
+        if separation <= allowed:
+            found.append((name, separation))
+    return found
 
 
 def calculate_major_aspects(positions: dict) -> list[dict]:
@@ -583,7 +654,7 @@ def calculate_major_aspects(positions: dict) -> list[dict]:
     found_aspects = []
     for i, a in enumerate(names):
         for b in names[i + 1:]:
-            for aspect_name, orb in _aspects_between(positions[a], positions[b]):
+            for aspect_name, orb in _aspects_between(positions[a], positions[b], a, b):
                 found_aspects.append({
                     "from_object": a,
                     "to_object": b,
@@ -619,7 +690,7 @@ def calculate_transit_to_natal_aspects(transit_chart: Any, natal_positions: dict
             # once, so no deduplication is needed. Deduping by object
             # names would wrongly drop transiting X to natal Y whenever
             # transiting Y to natal X also aspects (same name pair).
-            for aspect_name, orb in _aspects_between(t_pos, n_pos):
+            for aspect_name, orb in _aspects_between(t_pos, n_pos, transiting, natal_name):
                 found_aspects.append({
                     "from_object": transiting,
                     "to_object": natal_name,

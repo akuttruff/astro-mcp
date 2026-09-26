@@ -417,14 +417,27 @@ class TestNatalChartAspectDetails:
             assert "type" in aspect
             assert "orb" in aspect
         
-        # Verify we have the expected number of unique aspects (30 for this chart)
+        # Each pair is reported once.
         aspect_pairs = set()
         for aspect in data["aspects"]:
             pair = tuple(sorted([aspect["from_object"], aspect["to_object"]]))
             aspect_pairs.add(pair)
-        
-        # Should have 30 unique aspects for this chart
-        assert len(aspect_pairs) == 30, f"Expected 30 unique aspects, got {len(aspect_pairs)}"
+        assert len(aspect_pairs) == len(data["aspects"]), "a pair is reported twice"
+        assert aspect_pairs, "no aspects found"
+
+        # Every aspect respects the per-body orb allowance rather than one
+        # flat orb. Asserting the policy, not a count: the count moves
+        # whenever the weights are tuned, and a magic number would then be
+        # updated to match rather than checked.
+        from astro_mcp.utils import orb_for
+        for aspect in data["aspects"]:
+            limit = orb_for(aspect["type"], aspect["from_object"], aspect["to_object"])
+            if limit is None:
+                continue  # a minor aspect, on immanuel's own orbs
+            assert aspect["orb"] <= limit, (
+                f"{aspect['from_object']} {aspect['type']} {aspect['to_object']} "
+                f"orb {aspect['orb']} exceeds its {limit}° allowance"
+            )
 
 
 class TestNatalChartMoonPhase:
