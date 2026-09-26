@@ -633,11 +633,52 @@ def _aspects_between(longitude_a: float, longitude_b: float,
         separation = abs(diff - angle)
         allowed = (orb_for(name, object_a, object_b) or base) if (object_a or object_b) else base
         if separation <= allowed:
-            found.append((name, separation))
+            # Same hundredth-of-a-degree rounding the immanuel path uses;
+            # raw floats carry 17 digits of binary noise.
+            found.append((name, round(separation, 2)))
     return found
 
 
-def calculate_major_aspects(positions: dict) -> list[dict]:
+def _signed_deviation(lon_a: float, lon_b: float, angle: float) -> float:
+    """Signed distance from exactness, in degrees.
+
+    Zero is exact; the sign says which side of the aspect the pair sits on,
+    so the sign combined with the relative speed gives the direction of
+    travel. Mirrors the convention in transit._signed_orb.
+    """
+    d = (lon_a - lon_b) % 360
+    if d > 180:
+        d -= 360
+    eps = 1.0 if abs(d - angle) <= abs(d + angle) else -1.0
+    f = (lon_a - lon_b - eps * angle) % 360
+    if f > 180:
+        f -= 360
+    return f
+
+
+def aspect_movement(lon_a: float, lon_b: float, angle: float,
+                    relative_speed: float | None) -> str | None:
+    """'Applicative', 'Separative' or 'Stationary' for an aspect.
+
+    Whether an aspect is closing or fading is the first thing a reading asks
+    of a transit -- an applying square is building, a separating one is
+    spending itself -- and it is not recoverable from the orb alone.
+
+    The natal side is fixed, so the signed deviation changes at exactly the
+    transiting body's speed: the aspect is applying when the two have
+    opposite signs, i.e. the deviation is travelling toward zero.
+    """
+    if relative_speed is None:
+        return None
+    if relative_speed == 0:
+        return 'Stationary'
+    f = _signed_deviation(lon_a, lon_b, angle)
+    if f == 0:
+        return 'Exact'
+    return 'Applicative' if f * relative_speed < 0 else 'Separative'
+
+
+def calculate_major_aspects(positions: dict, speeds: dict | None = None) -> list[dict]:
     """All major aspects among the objects of a single position set.
 
     Used for transit scans without a birth chart: the aspects among the
@@ -655,12 +696,21 @@ def calculate_major_aspects(positions: dict) -> list[dict]:
     for i, a in enumerate(names):
         for b in names[i + 1:]:
             for aspect_name, orb in _aspects_between(positions[a], positions[b], a, b):
-                found_aspects.append({
+                entry = {
                     "from_object": a,
                     "to_object": b,
                     "type": aspect_name,
                     "orb": orb,
-                })
+                }
+                if speeds:
+                    # Both bodies move here, so the closing rate is relative.
+                    movement = aspect_movement(
+                        positions[a], positions[b], MAJOR_ASPECTS[aspect_name][0],
+                        speeds.get(a, 0.0) - speeds.get(b, 0.0),
+                    )
+                    if movement:
+                        entry["movement"] = movement
+                found_aspects.append(entry)
     found_aspects.sort(key=lambda x: x['orb'])
     return found_aspects
 
@@ -682,6 +732,12 @@ def calculate_transit_to_natal_aspects(transit_chart: Any, natal_positions: dict
         for obj in transit_chart.objects.values()
         if obj.name in MAJOR_OBJECTS
     }
+    # Negative speed is retrograde; it flips which way an aspect is heading.
+    transit_speeds = {
+        obj.name: getattr(obj, 'speed', None)
+        for obj in transit_chart.objects.values()
+        if obj.name in MAJOR_OBJECTS
+    }
 
     found_aspects = []
     for transiting, t_pos in transit_positions.items():
@@ -691,12 +747,21 @@ def calculate_transit_to_natal_aspects(transit_chart: Any, natal_positions: dict
             # names would wrongly drop transiting X to natal Y whenever
             # transiting Y to natal X also aspects (same name pair).
             for aspect_name, orb in _aspects_between(t_pos, n_pos, transiting, natal_name):
-                found_aspects.append({
+                entry = {
                     "from_object": transiting,
                     "to_object": natal_name,
                     "type": aspect_name,
                     "orb": orb,
-                })
+                }
+                # The natal point is fixed, so the transiting body's own
+                # speed is the closing rate.
+                movement = aspect_movement(
+                    t_pos, n_pos, MAJOR_ASPECTS[aspect_name][0],
+                    transit_speeds.get(transiting),
+                )
+                if movement:
+                    entry["movement"] = movement
+                found_aspects.append(entry)
 
     # Sort by orb (tightest first)
     found_aspects.sort(key=lambda x: x['orb'])
