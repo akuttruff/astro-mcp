@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pydantic import Field
 
-from astro_mcp.utils import compact_chart_json, error_response, calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, MAJOR_ASPECTS, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
+from astro_mcp.utils import NATAL_TRANSIT_TARGETS, compact_chart_json, error_response, calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, MAJOR_ASPECTS, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
 from astro_mcp.config import get_config
 
 # MCP clients truncate large tool responses (~25KB). Keep list output
@@ -388,7 +388,7 @@ def create_transit_chart(
         natal_positions = {
             obj.name: obj.longitude.raw % 360
             for obj in natal_chart.objects.values()
-            if obj.name in MAJOR_OBJECTS
+            if obj.name in NATAL_TRANSIT_TARGETS
         }
 
         transit_natal_aspects = calculate_transit_to_natal_aspects(transit_chart, natal_positions)
@@ -572,7 +572,7 @@ def list_upcoming_transits(
             natal_positions = {
                 obj.name: obj.longitude.raw % 360
                 for obj in natal_chart.objects.values()
-                if obj.name in MAJOR_OBJECTS
+                if obj.name in NATAL_TRANSIT_TARGETS
             }
 
         # Timezone + object ids for exact-moment refinement. In general mode

@@ -86,8 +86,10 @@ class TestSizeTiersPreferLosslessCompaction:
         assert "omitted" not in data
 
     def test_an_oversized_range_compacts_before_it_drops(self):
+        # Four months: over the budget as named objects, but small enough that
+        # positional encoding alone brings it back under.
         data = json.loads(list_upcoming_transits(
-            start_date="2026-09-25", end_date="2027-03-25", **self.BIRTH))
+            start_date="2026-09-25", end_date="2027-01-25", **self.BIRTH))
         # Compaction happened...
         assert data["span_fields"] == [
             "start", "end", "from_object", "to_object", "type", "orb", "exact",

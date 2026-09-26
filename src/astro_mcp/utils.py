@@ -527,6 +527,19 @@ def extract_aspect_details(chart: Any) -> list[dict]:
 # with location-specific noise (transit IC conjunct natal MC, etc.).
 MAJOR_OBJECTS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron']
 
+# Natal points a transit can be reported against.
+#
+# The transiting side is planets only -- an angle does not "transit" anything,
+# it sweeps the whole zodiac daily -- but the *natal* angles are among the
+# most significant things a transit can touch: transiting Saturn crossing the
+# natal Ascendant or MC is a textbook life-stage marker, and reporting only
+# planet-to-planet contacts silently omits it.
+#
+# Desc and IC are excluded deliberately: they sit exactly opposite Asc and MC,
+# so every aspect to them is already reported as the opposing aspect to the
+# angle itself. Including both would double every angular contact.
+NATAL_TRANSIT_TARGETS = MAJOR_OBJECTS + ['Asc', 'MC', 'True North Node']
+
 # Major aspects: name -> (exact angle, detection orb in degrees)
 MAJOR_ASPECTS = {
     'Conjunction': (0, 10),

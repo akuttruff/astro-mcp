@@ -28,6 +28,7 @@ def fixture_data_transit():
         from astro_mcp.config import get_config
         from astro_mcp.tools.transit import _transits_for_date
         from astro_mcp.utils import (
+            NATAL_TRANSIT_TARGETS,
             assign_natal_houses_to_transit_objects,
             calculate_transit_to_natal_aspects,
             compact_chart_json,
@@ -56,8 +57,7 @@ def fixture_data_transit():
         natal_positions = {
             o.name: o.longitude.raw % 360
             for o in natal_chart.objects.values()
-            if o.name in ["Sun", "Moon", "Mercury", "Venus", "Mars",
-                          "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Chiron"]
+            if o.name in NATAL_TRANSIT_TARGETS
         }
         aspects_list = calculate_transit_to_natal_aspects(transit_chart, natal_positions)
 
@@ -1047,7 +1047,7 @@ class TestExactAspectMoments:
         from immanuel import charts
         from astro_mcp.config import get_config
         from astro_mcp.tools.transit import _chart_tz, _object_ids
-        from astro_mcp.utils import MAJOR_OBJECTS
+        from astro_mcp.utils import MAJOR_OBJECTS, NATAL_TRANSIT_TARGETS
 
         config = get_config(None)
         native = charts.Subject(
@@ -1059,7 +1059,7 @@ class TestExactAspectMoments:
         natal_positions = {
             obj.name: obj.longitude.raw % 360
             for obj in natal.objects.values()
-            if obj.name in MAJOR_OBJECTS
+            if obj.name in NATAL_TRANSIT_TARGETS
         }
         return (
             natal,
@@ -1098,7 +1098,7 @@ class TestExactAspectMoments:
 
     def test_list_spans_carry_exact_moments(self, reference_a):
         from astro_mcp.tools.transit import list_upcoming_transits, _transits_for_date
-        from astro_mcp.utils import calculate_transit_to_natal_aspects
+        from astro_mcp.utils import calculate_transit_to_natal_aspects, NATAL_TRANSIT_TARGETS
 
         natal, natal_positions, ids, tz, config = self._natal_setup(reference_a)
         data = json.loads(list_upcoming_transits(
@@ -1162,7 +1162,7 @@ class TestExactAspectMoments:
 
     def test_transit_chart_aspects_carry_exact_at(self, reference_a):
         from astro_mcp.tools.transit import create_transit_chart, _transits_for_date
-        from astro_mcp.utils import calculate_transit_to_natal_aspects
+        from astro_mcp.utils import calculate_transit_to_natal_aspects, NATAL_TRANSIT_TARGETS
 
         natal, natal_positions, ids, tz, config = self._natal_setup(reference_a)
         snapshot = "2025-06-20 12:00"
@@ -1260,7 +1260,7 @@ class TestExactTransitRegression:
         """Orbs must be computed from full-precision longitudes, not integer
         degrees. With whole-degree quantization the fake position pair below
         would report a false exact (orb 0) sextile; the true orb is 0.6."""
-        from astro_mcp.utils import calculate_transit_to_natal_aspects
+        from astro_mcp.utils import calculate_transit_to_natal_aspects, NATAL_TRANSIT_TARGETS
 
         class _FakeAngle:
             def __init__(self, raw):
