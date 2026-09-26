@@ -166,7 +166,7 @@ def compact_chart_json(
         result["moon_phase"] = moon_phase
     if extra:
         result.update(extra)
-    return json.dumps(result, indent=2)
+    return json.dumps(result, separators=(",", ":"), ensure_ascii=False)
 
 
 def error_response(message: str, detail: str = "") -> str:
@@ -174,7 +174,7 @@ def error_response(message: str, detail: str = "") -> str:
     err = {"error": message}
     if detail:
         err["detail"] = detail
-    return json.dumps(err, indent=2)
+    return json.dumps(err, separators=(",", ":"), ensure_ascii=False)
 
 
 # (JSON key, display name) for the eight moon phases, in elongation order.
@@ -490,7 +490,15 @@ def extract_aspect_details(chart: Any) -> list[dict]:
                 # pair; the actual deviation from the exact angle is
                 # Aspect.difference (signed). Report the magnitude of that.
                 difference_val = getattr(aspect, 'difference', None)
-                actual_orb = abs(difference_val.raw) if difference_val is not None else None
+                # Round to hundredths of a degree (~36 arcseconds). Raw
+                # floats carry 17 significant digits of binary noise, which
+                # is spurious precision no astrological reading depends on,
+                # and it bloats the payload an MCP client has to carry.
+                actual_orb = (
+                    round(abs(difference_val.raw), 2)
+                    if difference_val is not None
+                    else None
+                )
 
                 aspect_info = {
                     "from_object": from_name,

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python *)",
+      "Bash(cd *)",
+      "Bash(grep *)"
+    ]
+  },
+  "$version": 4
+}
