@@ -66,3 +66,50 @@ def test_transit_tools_are_compact_too(result):
     assert "\n" not in result
     assert "\\u00b0" not in result
     json.loads(result)
+
+
+class TestSizeTiersPreferLosslessCompaction:
+    """Dropping aspects must be a last resort, not a first one.
+
+    The two size tiers used to run in the wrong order: real Moon and Mercury
+    spans were discarded before the lossless positional encoding was tried,
+    so data was lost to save bytes a cheaper encoding would have saved anyway.
+    """
+
+    BIRTH = dict(date_time="1984-05-10T20:44:00", latitude=37.77, longitude=-122.42)
+
+    def test_a_small_range_stays_readable(self):
+        # Under budget: keep named keys, which read better.
+        data = json.loads(list_upcoming_transits(**self.BIRTH))
+        assert "span_fields" not in data
+        assert isinstance(data["transits"][0], dict)
+        assert "omitted" not in data
+
+    def test_an_oversized_range_compacts_before_it_drops(self):
+        data = json.loads(list_upcoming_transits(
+            start_date="2026-09-25", end_date="2027-03-25", **self.BIRTH))
+        # Compaction happened...
+        assert data["span_fields"] == [
+            "start", "end", "from_object", "to_object", "type", "orb", "exact",
+        ]
+        assert isinstance(data["transits"][0], list)
+        # ...and was enough, so nothing was thrown away.
+        assert "omitted" not in data
+        kept = {row[2] for row in data["transits"]}
+        assert "Moon" in kept or "Mercury" in kept
+
+    def test_only_a_huge_range_omits_fast_objects(self):
+        data = json.loads(list_upcoming_transits(
+            start_date="2026-09-25", end_date="2027-09-25", **self.BIRTH))
+        assert "span_fields" in data, "should compact before omitting"
+        assert "omitted" in data
+        assert data["omitted"]["objects"] == ["Mercury", "Moon"]
+        # The caller is told what went and how to get it back.
+        assert data["omitted"]["spans"]["Moon"] > 0
+        assert "object_filter" in data["omitted"]["hint"]
+
+    def test_an_explicit_filter_is_respected(self):
+        data = json.loads(list_upcoming_transits(
+            object_filter="Moon", start_date="2026-09-25", end_date="2027-09-25",
+            **self.BIRTH))
+        assert "omitted" not in data

@@ -11,9 +11,10 @@ from astro_mcp.utils import compact_chart_json, error_response, calculate_transi
 from astro_mcp.config import get_config
 
 # MCP clients truncate large tool responses (~25KB). Keep list output
-# under this budget; when it is exceeded, high-frequency fast-object spans
-# are auto-omitted and reported (see list_upcoming_transits).
-_MAX_RESPONSE_CHARS = 20000
+# under this budget; when it is exceeded the spans are first re-encoded as
+# positional arrays (lossless), and only if that is still too large are
+# high-frequency fast-object spans omitted and reported.
+_MAX_RESPONSE_CHARS = 25000
 
 
 def _transits_for_date(date_str: str, latitude, longitude, aspects_to, config):
@@ -712,19 +713,32 @@ def list_upcoming_transits(
             )
 
         # Single-line compact JSON keeps responses small for the LLM
-        payload = json.dumps(result, separators=(",", ":"))
+        payload = json.dumps(result, separators=(",", ":"), ensure_ascii=False)
 
         # Self-adaptive size control: MCP clients truncate large responses
-        # (~25KB), so oversized results are condensed in two tiers:
+        # (~25KB), so oversized results are condensed in two tiers. Lossless
+        # compaction comes first: dropping real aspects to save bytes that a
+        # cheaper encoding would have saved anyway is a bad trade.
         if len(payload) > _MAX_RESPONSE_CHARS:
-            # Tier 1: drop the most frequent, short-lived spans (transiting
-            # Moon and Mercury) and report exactly what was omitted and how
-            # to get it back. An explicit object_filter disables this tier.
+            # Tier 1: re-encode spans as positional arrays (much smaller than
+            # repeated object keys), documented by 'span_fields'. No data is
+            # lost -- only the key names, which the legend restores.
+            result["transits"] = [
+                [t["start"], t["end"], t["from_object"], t["to_object"], t["type"], t["orb"], t["exact"]]
+                for t in transits
+            ]
+            result["span_fields"] = ["start", "end", "from_object", "to_object", "type", "orb", "exact"]
+            payload = json.dumps(result, separators=(",", ":"), ensure_ascii=False)
+
+            # Tier 2: only if compaction was not enough, drop the most
+            # frequent, short-lived spans (transiting Moon and Mercury) and
+            # report exactly what went and how to get it back. An explicit
+            # object_filter disables this tier.
             # Filtering on from_object is safe in both modes: in natal mode
             # it is the transiting planet; in general mode the faster object
             # always sorts first in MAJOR_OBJECTS order, so fast-driven
             # pairs are caught too.
-            if object_names is None:
+            if len(payload) > _MAX_RESPONSE_CHARS and object_names is None:
                 fast_objects = ("Moon", "Mercury")
                 omitted = {}
                 for t in transits:
@@ -733,25 +747,18 @@ def list_upcoming_transits(
                 if omitted:
                     transits = [t for t in transits if t["from_object"] not in fast_objects]
                     result["total_transits"] = len(transits)
-                    result["transits"] = transits
+                    result["transits"] = [
+                        [t["start"], t["end"], t["from_object"], t["to_object"], t["type"], t["orb"], t["exact"]]
+                        for t in transits
+                    ]
                     result["omitted"] = {
                         "objects": sorted(omitted),
                         "spans": omitted,
-                        "reason": "the full list exceeded the response size budget",
+                        "reason": "the full list exceeded the response size budget even when compacted",
                         "hint": "pass object_filter (e.g. 'Moon,Mercury') to include "
                                 "these objects, or narrow the range or lower max_orb",
                     }
-                    payload = json.dumps(result, separators=(",", ":"))
-
-            # Tier 2: re-encode spans as positional arrays (much smaller
-            # than repeated object keys), documented by 'span_fields'.
-            if len(payload) > _MAX_RESPONSE_CHARS:
-                result["transits"] = [
-                    [t["start"], t["end"], t["from_object"], t["to_object"], t["type"], t["orb"], t["exact"]]
-                    for t in transits
-                ]
-                result["span_fields"] = ["start", "end", "from_object", "to_object", "type", "orb", "exact"]
-                payload = json.dumps(result, separators=(",", ":"))
+                    payload = json.dumps(result, separators=(",", ":"), ensure_ascii=False)
 
         return payload
 

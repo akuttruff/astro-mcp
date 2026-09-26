@@ -72,7 +72,9 @@ def _compact_object(obj: Any, house_overrides: dict[str, int] | None = None) -> 
 
     entry = {
         # Full-precision decimal degrees (~1.3" resolution); immanuel's
-        # .degrees attribute would quantize to whole degrees.
+        # .degrees attribute would quantize to whole degrees. Kept alongside
+        # `position` despite the overlap: the DMS string reads well but is
+        # awkward to compare, and this is the handle for any numeric check.
         "longitude": round(obj.longitude.raw % 360, 4),
         "position": f"{obj.sign_longitude.formatted} {obj.sign.name}",
         "house": house,
@@ -505,7 +507,9 @@ def extract_aspect_details(chart: Any) -> list[dict]:
                     "to_object": to_name,
                     "type": str(getattr(aspect, 'type', None)),
                     "orb": actual_orb,
-                    "distance": str(getattr(aspect, 'distance', '')),
+                    # No "distance": it is `orb` rendered as DMS, and its sign
+                    # says what `movement` already says. Two spellings of one
+                    # number cost bytes and invite disagreement.
                     "condition": condition_str,
                     "movement": movement_str
                 }
