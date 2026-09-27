@@ -4,7 +4,7 @@ import json
 from mcp.server.mcpserver import MCPServer
 
 from astro_mcp.config import HOUSE_SYSTEMS_INFO
-from astro_mcp.tools import natal, solar_return, progressed, transit, synastry
+from astro_mcp.tools import natal, solar_return, progressed, transit, synastry, timing
 from astro_mcp.utils import get_current_datetime
 
 # Create MCPServer instance
@@ -20,6 +20,10 @@ mcp = MCPServer(
         "timing or duration yourself from a single chart. "
         "Use create_transit_chart only for one specific moment: 'now' (omit transit_date_time) or a user-given date/time, "
         "e.g. the exact moment of a new or full moon for lunation work. "
+        "Timing and electional routing: for planetary hours ('a Venus hour', 'what hour is it') use planetary_hours; "
+        "for 'is the Moon void?' or choosing a time to start something use moon_void_periods; for new/full moons and "
+        "eclipses (and how they fall in a birth chart) use lunations_and_eclipses. These compute the traditional rules "
+        "for you: report their results, never work out hours, void periods or lunation dates yourself. "
         "Use whole_sign houses (default) unless the user explicitly requests another system. "
         "Date format: pass all datetimes as ISO 8601 'YYYY-MM-DD HH:MM' (e.g. '1984-05-10 20:44') and date-only "
         "params as 'YYYY-MM-DD'. Convert natural-language dates from the user (e.g. 'May 10, 1984 8:44 PM' -> "
@@ -36,6 +40,7 @@ def register_tools():
     progressed.register(mcp)
     transit.register(mcp)
     synastry.register(mcp)
+    timing.register(mcp)
 
 
 def register_reference_tools():

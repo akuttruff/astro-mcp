@@ -10,6 +10,9 @@ An MCP (Model Context Protocol) server that exposes the [immanuel-python](https:
 - **Transit charts** - Track current planetary positions against a natal chart
 - **Synastry/Composite charts** - Analyze relationships between two people
 - **House system support** - 13 house systems including Whole Sign, Placidus, Equal, Koch, Campanus, Regiomontanus, Porphyry, Morinus, Polich Page, Alcabitus, Azimuthal, Meridian, and Vehlow Equal
+- **Planetary hours** - The day's ruler and its 24 unequal hours from local sunrise and sunset, and the hour in effect now
+- **Void-of-course Moon** - Each period from the Moon's last major aspect in a sign until she changes sign, and whether she is void now (traditional seven planets, or including the outer planets)
+- **Lunations and eclipses** - New and full moons and solar and lunar eclipses in a date range, with exact local times and degrees; optionally the natal house and contacts of each in a birth chart
 - **Reference tools** - List available house systems and chart objects
 - **Flexible location input** - Provide birth location as coordinates (lat/lon) OR city/state/country with automatic geocoding
 
