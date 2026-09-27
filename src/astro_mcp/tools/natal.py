@@ -6,7 +6,7 @@ from mcp.server.mcpserver import MCPServer
 
 from pydantic import Field, TypeAdapter
 from astro_mcp.schemas import NatalChartParams, get_coordinates_for_params
-from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from astro_mcp.utils import describe_chart_error, compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
 
 
@@ -112,6 +112,9 @@ def create_natal_chart(
     except ImportError as e:
         return error_response("immanuel library not available", str(e))
     except Exception as e:
+        known = describe_chart_error(e)
+        if known:
+            return error_response(*known)
         return error_response("Chart generation failed", f"Unexpected error: {str(e)}")
 
 

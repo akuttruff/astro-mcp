@@ -6,6 +6,7 @@ from mcp.server.mcpserver import MCPServer
 from pydantic import Field
 
 from astro_mcp.utils import (
+    describe_chart_error,
     NATAL_TRANSIT_TARGETS,
     chart_positions,
     compact_chart_json,
@@ -183,6 +184,9 @@ def register(mcp: MCPServer):
         except ImportError as e:
             return error_response("immanuel library not available", str(e))
         except Exception as e:
+            known = describe_chart_error(e)
+            if known:
+                return error_response(*known)
             return error_response("Synastry generation failed", f"Unexpected error: {str(e)}")
 
     # Register tool with MCPServer

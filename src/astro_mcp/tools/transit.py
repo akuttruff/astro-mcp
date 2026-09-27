@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pydantic import Field
 
-from astro_mcp.utils import NATAL_TRANSIT_TARGETS, compact_chart_json, error_response, calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, MAJOR_ASPECTS, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
+from astro_mcp.utils import describe_chart_error, NATAL_TRANSIT_TARGETS, compact_chart_json, error_response, calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, MAJOR_ASPECTS, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
 from astro_mcp.config import get_config
 
 # MCP clients truncate large tool responses (~25KB). Keep list output
@@ -495,6 +495,9 @@ def create_transit_chart(
     except ImportError as e:
         return error_response("immanuel library not available", str(e))
     except Exception as e:
+        known = describe_chart_error(e)
+        if known:
+            return error_response(*known)
         return error_response("Transit chart generation failed", f"Unexpected error: {str(e)}")
 
 
@@ -869,6 +872,9 @@ def list_upcoming_transits(
     except ImportError as e:
         return error_response("immanuel library not available", str(e))
     except Exception as e:
+        known = describe_chart_error(e)
+        if known:
+            return error_response(*known)
         return error_response("Transit scanning failed", f"Unexpected error: {str(e)}")
 
 

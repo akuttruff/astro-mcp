@@ -171,6 +171,34 @@ def compact_chart_json(
     return json.dumps(result, separators=(",", ":"), ensure_ascii=False)
 
 
+def describe_chart_error(exc: Exception) -> tuple[str, str] | None:
+    """Turn a known library failure into (message, detail), or None.
+
+    Swiss Ephemeris raises for a few conditions that are really properties
+    of the request, not faults. Passed through raw they reach the caller as
+    "Unexpected error: swisseph.houses_ex2: ...", which says nothing about
+    what to do differently.
+    """
+    text = str(exc)
+
+    if "polar circle" in text:
+        return (
+            "Location is inside the polar circle",
+            "House cusps are undefined above roughly 66 degrees latitude. Swiss "
+            "Ephemeris substitutes Porphyry there, but reports it as an error, so "
+            "no chart with houses can be produced for this place. Use a location "
+            "further from the pole, or read the chart without houses elsewhere.",
+        )
+
+    if "SwissEph file" in text or "ephemeris file" in text.lower():
+        return (
+            "Date outside the available ephemeris",
+            f"The ephemeris files do not cover this date. {text}",
+        )
+
+    return None
+
+
 def error_response(message: str, detail: str = "") -> str:
     """Return a structured error as JSON (MCP tool result)."""
     err = {"error": message}
@@ -277,8 +305,12 @@ def validate_date_string(date_str: str) -> tuple[bool, str]:
     try:
         # Parse and validate range
         dt = datetime.strptime(f"{date_part} {time_part}", fmt)
-        if dt.year < 1200 or dt.year > 4799:
-            return False, f"Date out of range. Supported range: 1200-01-01 to 4799-12-31"
+        # 4649 is where the bundled Swiss Ephemeris files stop. The old
+        # 4799 came from the library's documented maximum, so dates in the
+        # last 150 years of the advertised range passed validation and then
+        # failed with a raw file error.
+        if dt.year < 1200 or dt.year > 4649:
+            return False, "Date out of range. Supported range: 1200-01-01 to 4649-12-31"
         return True, ""
     except ValueError as e:
         return False, f"Invalid date: got {date_str!r} ({e})"

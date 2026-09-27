@@ -5,7 +5,7 @@ from typing import Annotated
 from mcp.server.mcpserver import MCPServer
 from pydantic import Field
 
-from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from astro_mcp.utils import describe_chart_error, compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
 
 
@@ -26,7 +26,8 @@ def create_solar_return(
         date_time: Birth date and time in format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'. Local time at the birthplace.
         latitude: Latitude. Decimal degrees (e.g. '34.05') or DMS (e.g. '34n03'). Negative or 's' for south.
         longitude: Longitude. Decimal degrees (e.g. '-118.24') or DMS (e.g. '118w15'). Negative or 'w' for west.
-        year: The year for the solar return (e.g., 2025). Must be between 1200 and 4799.
+        year: The year for the solar return (e.g., 2025). Must be between 1200 and 4649,
+            the span the bundled Swiss Ephemeris files cover.
         house_system: House system to use. Default: 'whole_sign'. See list_house_systems for options.
 
     Returns:
@@ -53,10 +54,13 @@ def create_solar_return(
         return error_response("Invalid longitude", error)
 
     # Validate year
-    if year < 1200 or year > 4799:
+    # The bundled ephemeris runs from early 1200 to 4649; the old 4799
+    # bound was inherited from the library's documented maximum and failed
+    # with a raw file error for the last 150 years of it.
+    if year < 1200 or year > 4649:
         return error_response(
             "Year out of range",
-            f"Supported range: 1200 to 4799. Got: {year}"
+            f"Supported range: 1200 to 4649 (the bundled ephemeris). Got: {year}"
         )
 
     # Validate house system if provided
@@ -107,6 +111,9 @@ def create_solar_return(
     except ImportError as e:
         return error_response("immanuel library not available", str(e))
     except Exception as e:
+        known = describe_chart_error(e)
+        if known:
+            return error_response(*known)
         return error_response("Solar return generation failed", f"Unexpected error: {str(e)}")
 
 

@@ -149,7 +149,7 @@ class SolarReturnParams(BaseModel):
     )
     year: int = Field(
         ...,
-        description="The year for the solar return (e.g., 2025). Must be between 1200 and 4799."
+        description="The year for the solar return (e.g., 2025). Must be between 1200 and 4649."
     )
     house_system: Optional[str] = Field(
         None,
