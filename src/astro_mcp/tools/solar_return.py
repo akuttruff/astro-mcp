@@ -90,10 +90,13 @@ def create_solar_return(
         return compact_chart_json(
             solar_return_chart,
             chart_type="solar_return",
-            date_time=date_time.replace("T", " "),
+            # The instant the Sun returns to its natal degree -- what this
+            # chart is cast for. The birth time is kept below for reference.
+            date_time=solar_return_chart.solar_return_date_time.datetime.isoformat(),
             house_system=house_system or "whole_sign",
             aspects=aspects_list,
             extra={
+                "birth_date_time": date_time.replace("T", " "),
                 "solar_return_year": year,
                 "solar_return_date_time": solar_return_chart.solar_return_date_time.datetime.isoformat(),
             },

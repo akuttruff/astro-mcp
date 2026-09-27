@@ -93,11 +93,13 @@ class TestProgressedChartHappyPath:
         import json
         data = json.loads(result)
         
-        # The progressed date should be significantly after the birth date
-        birth_datetime = data["date_time"]
+        # The chart's own date_time is now the progressed moment; the
+        # birth time is kept separately. The progression must still have
+        # moved the chart forward.
+        birth_datetime = data["birth_date_time"]
         progressed_datetime = data["progressed_date_time"]
 
-        # Just verify both exist and are different dates
+        assert data["date_time"] == progressed_datetime
         assert birth_datetime != progressed_datetime
 
 

@@ -87,18 +87,35 @@ def create_progressed_chart(
             config=config
         )
 
-        # Get aspect details using immanuel's internal Aspect objects
+        # Built with aspects_to=natal_chart, so every aspect runs from a
+        # progressed object to a natal one. Say so: "progressed Asc conjunct
+        # Jupiter" is ambiguous, and progressed and natal Jupiter can sit a
+        # fraction of a degree apart.
         aspects_list = extract_aspect_details(progressed_chart)
+        for aspect in aspects_list:
+            aspect["from_chart"] = "progressed"
+            aspect["to_chart"] = "natal"
+
+        progressed_moment = progressed_chart.progressed_date_time.datetime.isoformat()
 
         return compact_chart_json(
             progressed_chart,
             chart_type="progressed",
-            date_time=date_time.replace("T", " "),
+            # The moment this chart is actually cast for. Naming the birth
+            # time here made a progressed chart look like a natal one.
+            date_time=progressed_moment,
             house_system=house_system or "whole_sign",
             aspects=aspects_list,
             extra={
+                "birth_date_time": date_time.replace("T", " "),
                 "target_date": target_date.replace("T", " "),
-                "progressed_date_time": progressed_chart.progressed_date_time.datetime.isoformat(),
+                "progressed_date_time": progressed_moment,
+                "note": (
+                    "Positions are progressed to progressed_date_time (secondary "
+                    "progression, one day per year of life). Aspects run from a "
+                    "progressed object to a natal one, as each entry's from_chart "
+                    "and to_chart record."
+                ),
             },
         )
 
