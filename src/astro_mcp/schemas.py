@@ -10,9 +10,13 @@ def get_coordinates_for_params(
     city: Optional[str],
     state: Optional[str] = None,
     country: Optional[str] = None
-) -> tuple[float, float]:
+) -> tuple[float, float, str | None]:
     """
     Get coordinates from either provided values or geocoding.
+
+    The third element is the address the geocoder matched, or None when
+    explicit coordinates were given. A chart cast for the wrong Springfield
+    is silently wrong, so the caller needs to see what was chosen.
     
     Args:
         latitude: Latitude string (if None, will use geocoding)
@@ -27,19 +31,13 @@ def get_coordinates_for_params(
     Raises:
         RuntimeError: If geocoding fails
     """
-    from astro_mcp.utils import geocode_location
-    
+    from astro_mcp.geocode import resolve_location
+
     if latitude is not None and longitude is not None:
-        # Use provided coordinates
-        lat_val = float(latitude)
-        lon_val = float(longitude)
-    elif city is not None:
-        # Geocode the location
-        lat_val, lon_val = geocode_location(city, state, country)
-    else:
-        raise ValueError("Must provide either coordinates or city/state/country")
-    
-    return lat_val, lon_val
+        return float(latitude), float(longitude), None
+    if city is not None:
+        return resolve_location(city, state, country)
+    raise ValueError("Must provide either coordinates or city/state/country")
 
 
 class LocationParams(BaseModel):

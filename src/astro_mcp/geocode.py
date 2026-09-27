@@ -1,5 +1,6 @@
 """Geocoding utilities for converting city/state/country to coordinates."""
 
+from functools import lru_cache
 from typing import Optional, Tuple
 
 # Try to import geopy, but don't fail if it's not available
@@ -21,6 +22,20 @@ def geocode_location(
     state: Optional[str] = None,
     country: Optional[str] = None
 ) -> Tuple[float, float]:
+    """Coordinates only. See resolve_location for what was matched."""
+    latitude, longitude, _ = resolve_location(city, state, country)
+    return latitude, longitude
+
+
+# Birth places repeat constantly -- the same person's chart, over and over --
+# and Nominatim asks for at most one request a second. Caching makes the
+# common case free and keeps us inside their usage policy.
+@lru_cache(maxsize=256)
+def resolve_location(
+    city: str,
+    state: Optional[str] = None,
+    country: Optional[str] = None
+) -> Tuple[float, float, str]:
     """
     Convert city/state/country to latitude and longitude.
     
@@ -74,7 +89,7 @@ def geocode_location(
                 f"Could not find coordinates for: {location_str}"
             )
         
-        return (location.latitude, location.longitude)
+        return (location.latitude, location.longitude, str(location.address))
     
     except GeocoderTimedOut:
         raise LocationNotFoundError(

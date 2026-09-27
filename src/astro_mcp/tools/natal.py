@@ -10,6 +10,14 @@ from astro_mcp.utils import describe_chart_error, compact_chart_json, error_resp
 from astro_mcp.config import get_config
 
 
+def _location_note(latitude: float, longitude: float, matched: str | None) -> dict:
+    """Report the coordinates used, and what a place name resolved to."""
+    note = {"latitude": round(latitude, 4), "longitude": round(longitude, 4)}
+    if matched:
+        note["matched_location"] = matched
+    return note
+
+
 def create_natal_chart(
     date_time: Annotated[str, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'. Local time at the birthplace.")],
     house_system: str | None = None,
@@ -57,7 +65,9 @@ def create_natal_chart(
 
     # Get coordinates (either from params or geocoding)
     try:
-        lat_val, lon_val = get_coordinates_for_params(latitude, longitude, city, state, country)
+        lat_val, lon_val, matched = get_coordinates_for_params(
+            latitude, longitude, city, state, country
+        )
     except ValueError as e:
         return error_response("Invalid location", str(e))
     except RuntimeError as e:
@@ -105,6 +115,7 @@ def create_natal_chart(
             date_time=date_time.replace("T", " "),
             house_system=house_system or "whole_sign",
             aspects=aspects_list,
+            extra=_location_note(lat_val, lon_val, matched),
         )
 
     except ValueError as e:

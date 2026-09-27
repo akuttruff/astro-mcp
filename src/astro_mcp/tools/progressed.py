@@ -7,14 +7,19 @@ from pydantic import Field
 
 from astro_mcp.utils import describe_chart_error, compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
 from astro_mcp.config import get_config
+from astro_mcp.schemas import get_coordinates_for_params
+from astro_mcp.tools.natal import _location_note
 
 
 def create_progressed_chart(
     date_time: Annotated[str, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'. Local time at the birthplace.")],
-    latitude: str | float,
-    longitude: str | float,
     target_date: Annotated[str, Field(description="Date to progress to, in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional).")],
-    house_system: str | None = None
+    latitude: str | float | None = None,
+    longitude: str | float | None = None,
+    house_system: str | None = None,
+    city: Annotated[str | None, Field(description="City name, geocoded to coordinates. Use instead of latitude/longitude.")] = None,
+    state: Annotated[str | None, Field(description="State or province, to disambiguate the city.")] = None,
+    country: Annotated[str | None, Field(description="Country, to disambiguate the city.")] = None,
 ) -> str:
     """Generate a secondary progressed chart for a target date.
 
@@ -32,10 +37,18 @@ def create_progressed_chart(
     Returns:
         JSON string of the progressed chart, or error message if validation fails
     """
-    # The schema accepts coordinates as numbers (LLMs often send JSON
-    # numbers); normalize to str for the string-based validators below.
-    latitude = str(latitude)
-    longitude = str(longitude)
+    # A place name is accepted instead of coordinates, as in create_natal_chart.
+    try:
+        lat_val, lon_val, matched = get_coordinates_for_params(
+            latitude, longitude, city, state, country
+        )
+    except ValueError as e:
+        return error_response("Invalid location", str(e))
+    except Exception as e:
+        return error_response("Geocoding failed", str(e))
+
+    latitude = str(lat_val)
+    longitude = str(lon_val)
 
     # Validate birth date
     valid, error = validate_date_string(date_time)
