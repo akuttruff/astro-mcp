@@ -4,7 +4,7 @@ import json
 import logging
 import math
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional, Tuple
 
 try:
@@ -22,16 +22,34 @@ logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
 
+def _local_zone_name() -> str | None:
+    """IANA name of this machine's zone, e.g. 'America/Los_Angeles'."""
+    import os
+    try:
+        target = os.readlink("/etc/localtime")
+    except OSError:
+        return os.environ.get("TZ") or None
+    marker = "zoneinfo/"
+    return target.split(marker, 1)[1] if marker in target else None
+
+
 def get_current_datetime() -> dict:
     """Get current date and time for LLM context awareness.
-    
+
+    `current_datetime` stays naive local wall-clock time, deliberately: it is
+    the shape the chart tools accept, so a caller can pass it straight into
+    create_transit_chart. What was missing was any statement of *which* local
+    time -- so the zone, its offset and the UTC instant are reported beside
+    it rather than folded into it.
+
     Returns:
-        Dict with current datetime information including ISO format, 
-        local time, and date components
+        Dict with current datetime information including ISO format,
+        timezone, UTC offset and date components
     """
-    now = datetime.now()
+    now = datetime.now().astimezone()
+    offset = now.strftime("%z")  # e.g. -0700
     return {
-        "current_datetime": now.isoformat(),
+        "current_datetime": now.replace(tzinfo=None).isoformat(),
         "date": now.strftime("%Y-%m-%d"),
         "time": now.strftime("%H:%M:%S"),
         "year": now.year,
@@ -40,7 +58,16 @@ def get_current_datetime() -> dict:
         "hour": now.hour,
         "minute": now.minute,
         "second": now.second,
-        "weekday": now.strftime("%A")
+        "weekday": now.strftime("%A"),
+        "timezone": _local_zone_name() or now.tzname(),
+        "timezone_abbreviation": now.tzname(),
+        "utc_offset": f"{offset[:3]}:{offset[3:]}",
+        "utc_datetime": now.astimezone(timezone.utc).isoformat(),
+        "note": (
+            "current_datetime is local time on the machine running this server, "
+            "in the timezone above. If the person is elsewhere, their local date "
+            "may differ."
+        ),
     }
 
 
