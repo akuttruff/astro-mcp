@@ -9,6 +9,7 @@ from pydantic import Field
 
 from astro_mcp.utils import describe_chart_error, NATAL_TRANSIT_TARGETS, compact_chart_json, error_response, calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, MAJOR_ASPECTS, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
 from astro_mcp.config import get_config
+from astro_mcp.schemas import get_coordinates_for_params
 
 # MCP clients truncate large tool responses (~25KB). Keep list output
 # under this budget; when it is exceeded the spans are first re-encoded as
@@ -319,13 +320,16 @@ def _aspect_exact_at(aspect: dict, ids: dict[str, int],
 
 def create_transit_chart(
     date_time: Annotated[str, Field(description="Birth date and time of the natal chart in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'.")],
-    latitude: str | float,
-    longitude: str | float,
+    latitude: str | float | None = None,
+    longitude: str | float | None = None,
     transit_date_time: Annotated[str | None, Field(description="Transit date and time in ISO 8601: 'YYYY-MM-DD HH:MM'. Omit for 'now'.")] = None,
     house_system: str | None = None,
     aspect_type: str | None = None,
     max_orb: float | None = None,
-    object_filter: str | None = None
+    object_filter: str | None = None,
+    city: Annotated[str | None, Field(description="Birth city, geocoded to coordinates. Use instead of latitude/longitude.")] = None,
+    state: Annotated[str | None, Field(description="State or province, to disambiguate the city.")] = None,
+    country: Annotated[str | None, Field(description="Country, to disambiguate the city.")] = None,
 ) -> str:
     """Generate a transit chart for ONE specific moment: transiting planet positions (placed in the natal chart's houses) and their aspects to the natal chart.
 
@@ -362,6 +366,23 @@ def create_transit_chart(
     Returns:
         JSON string of the transit chart, or error message if validation fails
     """
+    # A place name is accepted instead of coordinates, as in
+    # create_natal_chart. Resolved before the string validators, which would
+    # otherwise see None as the literal text "None".
+    if city is not None and (latitude is None or longitude is None):
+        try:
+            lat_val, lon_val, _matched = get_coordinates_for_params(
+                None, None, city, state, country
+            )
+        except Exception as e:
+            return error_response("Geocoding failed", str(e))
+        latitude, longitude = lat_val, lon_val
+
+    if latitude is None or longitude is None:
+        return error_response(
+            "Invalid location",
+            "Provide latitude and longitude, or a city (with state/country to disambiguate).",
+        )
     # The schema accepts coordinates as numbers (LLMs often send JSON
     # numbers); normalize to str for the string-based validators below.
     latitude = str(latitude)
@@ -509,7 +530,10 @@ def list_upcoming_transits(
     longitude: str | float | None = None,
     aspect_filter: str | None = None,
     object_filter: Annotated[str | None, Field(description="Comma-separated transiting objects to include, e.g. 'Moon,Mercury' or 'Sun,Mars,Pluto'. Valid names: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron. If omitted, all objects are included; oversized results auto-omit Moon and Mercury (see the 'omitted' field in the response).")] = None,
-    max_orb: float | None = 1.5
+    max_orb: float | None = 1.5,
+    city: Annotated[str | None, Field(description="Birth city, geocoded to coordinates. Use instead of latitude/longitude.")] = None,
+    state: Annotated[str | None, Field(description="State or province, to disambiguate the city.")] = None,
+    country: Annotated[str | None, Field(description="Country, to disambiguate the city.")] = None,
 ) -> str:
     """List dated transit aspects over a date range (one sample per day) - the tool for transit timing questions.
 
@@ -559,6 +583,18 @@ def list_upcoming_transits(
         (reported in 'omitted'), and if still oversized the spans are
         re-encoded as positional arrays matching the 'span_fields' legend.
     """
+    # A place name is accepted instead of coordinates, as in
+    # create_natal_chart. Resolved before the string validators, which would
+    # otherwise see None as the literal text "None".
+    if city is not None and (latitude is None or longitude is None):
+        try:
+            lat_val, lon_val, _matched = get_coordinates_for_params(
+                None, None, city, state, country
+            )
+        except Exception as e:
+            return error_response("Geocoding failed", str(e))
+        latitude, longitude = lat_val, lon_val
+
     # The schema accepts coordinates as numbers (LLMs often send JSON
     # numbers); normalize to str for the string-based validators below.
     if latitude is not None:
