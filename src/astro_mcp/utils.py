@@ -715,6 +715,49 @@ def calculate_major_aspects(positions: dict, speeds: dict | None = None) -> list
     return found_aspects
 
 
+def cross_chart_aspects(positions_a: dict, positions_b: dict,
+                        chart_a: str, chart_b: str,
+                        speeds_a: dict | None = None) -> list[dict]:
+    """Aspects from every object in chart A to every object in chart B.
+
+    Each entry names the chart both ends belong to. Without that a reader
+    cannot tell "progressed Asc conjunct natal Jupiter" from "progressed Asc
+    conjunct progressed Jupiter" -- and the two can sit a fraction of a
+    degree apart, so the labels are not decoration.
+    """
+    found = []
+    for name_a, lon_a in positions_a.items():
+        for name_b, lon_b in positions_b.items():
+            for aspect_name, orb in _aspects_between(lon_a, lon_b, name_a, name_b):
+                entry = {
+                    "from_object": name_a,
+                    "from_chart": chart_a,
+                    "to_object": name_b,
+                    "to_chart": chart_b,
+                    "type": aspect_name,
+                    "orb": orb,
+                }
+                if speeds_a is not None:
+                    movement = aspect_movement(
+                        lon_a, lon_b, MAJOR_ASPECTS[aspect_name][0],
+                        speeds_a.get(name_a),
+                    )
+                    if movement:
+                        entry["movement"] = movement
+                found.append(entry)
+    found.sort(key=lambda x: x["orb"])
+    return found
+
+
+def chart_positions(chart: Any, names: list[str] | None = None) -> dict:
+    """{object name: ecliptic longitude} for a chart."""
+    return {
+        obj.name: obj.longitude.raw % 360
+        for obj in chart.objects.values()
+        if names is None or obj.name in names
+    }
+
+
 def calculate_transit_to_natal_aspects(transit_chart: Any, natal_positions: dict) -> list[dict]:
     """Calculate transit-to-natal aspects for a transit chart.
 

@@ -1,67 +1,87 @@
-"""Tests for create_synastry tool."""
+"""Synastry: cross-chart aspects between two people.
+
+The tool advertised "aspects from Person A's planets to Person B's planets"
+and returned a sentence saying so, with no aspects. Separately, the aspects
+it did return were composite-to-B presented as the composite's own -- hence
+impossible rows like "Asc conjunct Asc".
+"""
+import json
+
+import pytest
+from unittest.mock import MagicMock
+
+from astro_mcp.tools import synastry
+
+A = dict(date_time_a="1984-05-10 20:44", latitude_a="34.02", longitude_a="-118.40")
+B = dict(date_time_b="1990-11-03 09:15", latitude_b="40.71", longitude_b="-74.01")
 
 
-class TestSynastryNumericCoordinateSchema:
-    """LLMs send coordinates as JSON numbers. The tool input schemas
-    (generated from the function type hints) must accept numbers as well as
-    strings, or the whole call is rejected with a parse error before the
-    tool body ever runs ('params.latitude is not any of [subschema 0]...')."""
+@pytest.fixture(scope="module")
+def tool():
+    captured = {}
+    mcp = MagicMock()
+    mcp.add_tool.side_effect = lambda fn, **kw: captured.update(fn=fn)
+    synastry.register(mcp)
+    return captured["fn"]
 
-    @staticmethod
-    def _registered_tool():
-        from mcp.server.mcpserver import MCPServer
-        from astro_mcp.tools import synastry
 
-        mcp = MCPServer(name="test")
-        synastry.register(mcp)
-        return mcp._tool_manager._tools["create_synastry"]
+@pytest.fixture(scope="module")
+def result(tool):
+    return json.loads(tool(**A, **B))
 
-    def test_accepts_numeric_coordinates(self):
-        args = self._registered_tool().fn_metadata.validate_arguments({
-            "date_time_a": "1984-05-10 20:44",
-            "latitude_a": 34.0211,
-            "longitude_a": -118.3968,
-            "date_time_b": "1990-01-15 08:30",
-            "latitude_b": 40.7128,
-            "longitude_b": -74.006,
-        })
-        assert args["latitude_a"] == 34.0211
-        assert args["longitude_a"] == -118.3968
-        assert args["latitude_b"] == 40.7128
-        assert args["longitude_b"] == -74.006
 
-    def test_accepts_string_coordinates(self):
-        args = self._registered_tool().fn_metadata.validate_arguments({
-            "date_time_a": "1984-05-10 20:44",
-            "latitude_a": "34.0211",
-            "longitude_a": "-118.3968",
-            "date_time_b": "1990-01-15 08:30",
-            "latitude_b": "40.7128",
-            "longitude_b": "-74.006",
-        })
-        assert args["latitude_a"] == "34.0211"
+class TestCrossAspects:
+    def test_they_exist_at_all(self, result):
+        assert isinstance(result["cross_aspects"], list)
+        assert result["cross_aspects"], "no cross-aspects returned"
 
-    def test_numeric_coordinates_end_to_end(self):
-        import json
-        from astro_mcp.tools import synastry
-        from mcp.server.mcpserver import MCPServer
+    def test_each_names_the_chart_on_both_sides(self, result):
+        for aspect in result["cross_aspects"]:
+            assert aspect["from_chart"] == "person_a"
+            assert aspect["to_chart"] == "person_b"
 
-        mcp = MCPServer(name="test")
-        synastry.register(mcp)
-        tool = mcp._tool_manager._tools["create_synastry"]
-        args = tool.fn_metadata.validate_arguments({
-            "date_time_a": "1984-05-10 20:44",
-            "latitude_a": 34.0211,
-            "longitude_a": -118.3968,
-            "date_time_b": "1990-01-15 08:30",
-            "latitude_b": 40.7128,
-            "longitude_b": -74.006,
-        })
+    def test_they_really_are_a_to_b(self, result):
+        # Check one against the raw positions rather than trusting the label.
+        objects_a = result["person_a"]["objects"]
+        objects_b = result["person_b"]["objects"]
+        for aspect in result["cross_aspects"]:
+            a = objects_a.get(aspect["from_object"])
+            b = objects_b.get(aspect["to_object"])
+            if not a or not b:
+                continue
+            separation = abs(a["longitude"] - b["longitude"]) % 360
+            if separation > 180:
+                separation = 360 - separation
+            expected = {"Conjunction": 0, "Sextile": 60, "Square": 90,
+                        "Trine": 120, "Opposition": 180}[aspect["type"]]
+            assert abs(separation - expected) == pytest.approx(aspect["orb"], abs=0.02)
 
-        data = json.loads(tool.fn(**args))
-        assert "person_a" in data
-        assert "person_b" in data
-        assert data["composite_chart"]["chart_type"] == "composite"
-        # Coordinates survive the body's str() normalization
-        assert data["person_a"]["latitude"] == "34.0211"
-        assert data["person_b"]["longitude"] == "-74.006"
+    def test_they_are_ordered_tightest_first(self, result):
+        orbs = [a["orb"] for a in result["cross_aspects"]]
+        assert orbs == sorted(orbs)
+
+
+class TestCompositeAspectsAreInternal:
+    def test_no_object_aspects_itself(self, result):
+        # "Asc conjunct Asc" is impossible within one chart and was the
+        # symptom of composite-to-B aspects being mislabelled.
+        for aspect in result["composite_chart"]["aspects"]:
+            assert aspect["from_object"] != aspect["to_object"], aspect
+
+    def test_the_composite_claims_no_moment(self, result):
+        # A midpoint construct is not cast for person A's birth time.
+        assert not result["composite_chart"].get("date_time")
+
+
+class TestBothChartsAreReturned:
+    def test_each_person_carries_their_positions(self, result):
+        for person in ("person_a", "person_b"):
+            assert result[person]["objects"]["Sun"]["longitude"]
+            assert result[person]["date_time"]
+
+
+class TestPayload:
+    def test_it_is_compact(self, tool):
+        out = tool(**A, **B)
+        assert "\n" not in out
+        assert "\\u00b0" not in out

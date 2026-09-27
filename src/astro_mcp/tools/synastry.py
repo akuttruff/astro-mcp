@@ -5,7 +5,18 @@ from typing import Annotated
 from mcp.server.mcpserver import MCPServer
 from pydantic import Field
 
-from astro_mcp.utils import compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from astro_mcp.utils import (
+    NATAL_TRANSIT_TARGETS,
+    chart_positions,
+    compact_chart_json,
+    cross_chart_aspects,
+    error_response,
+    extract_aspect_details,
+    validate_date_string,
+    validate_latitude,
+    validate_longitude,
+    validate_house_system,
+)
 from astro_mcp.config import get_config
 
 
@@ -103,46 +114,69 @@ def register(mcp: MCPServer):
             )
             natal_b = charts.Natal(native_b, config=config)
 
-            # Create composite chart with cross-aspects to Person B's natal
+            # No aspects_to: this chart's aspects are the composite's own.
+            # Passing the partner's natal here produced composite-to-B
+            # aspects presented as if they were internal, which is why
+            # entries like "Asc conjunct Asc" appeared.
             composite = charts.Composite(
                 native=native_a,
                 partner=native_b,
                 config=config,
-                aspects_to=natal_b
             )
 
-            # Build response with both individuals' data and composite
             import json
 
             composite_data = json.loads(compact_chart_json(
                 composite,
                 chart_type="composite",
-                date_time=date_time_a.replace("T", " "),
+                # The composite is a midpoint construct belonging to no
+                # moment; naming person A's birth time here implied it was
+                # cast for that instant.
+                date_time=None,
                 house_system=house_system or "whole_sign",
                 aspects=extract_aspect_details(composite),
             ))
+
+            # The actual synastry: every object of A against every object of
+            # B. This is what the tool has always advertised and never
+            # returned.
+            positions_a = chart_positions(natal_a, NATAL_TRANSIT_TARGETS)
+            positions_b = chart_positions(natal_b, NATAL_TRANSIT_TARGETS)
+            cross = cross_chart_aspects(positions_a, positions_b, "person_a", "person_b")
 
             result = {
                 "person_a": {
                     "date_time": date_time_a,
                     "latitude": latitude_a,
                     "longitude": longitude_a,
+                    "objects": json.loads(compact_chart_json(
+                        natal_a, chart_type="natal",
+                        date_time=date_time_a.replace("T", " "),
+                        house_system=house_system or "whole_sign",
+                        aspects=[],
+                    ))["objects"],
                 },
                 "person_b": {
                     "date_time": date_time_b,
                     "latitude": latitude_b,
                     "longitude": longitude_b,
+                    "objects": json.loads(compact_chart_json(
+                        natal_b, chart_type="natal",
+                        date_time=date_time_b.replace("T", " "),
+                        house_system=house_system or "whole_sign",
+                        aspects=[],
+                    ))["objects"],
                 },
                 "composite_chart": composite_data,
-                "cross_aspects": {
-                    "description": (
-                        "Aspects from Person A's planets to Person B's planets. "
-                        "The composite chart above also includes aspects between the composite positions."
-                    )
-                }
+                "cross_aspects": cross,
+                "note": (
+                    "cross_aspects are person A's objects to person B's objects, each "
+                    "entry naming both charts. composite_chart.aspects are internal to "
+                    "the composite."
+                ),
             }
 
-            return json.dumps(result, indent=2)
+            return json.dumps(result, separators=(",", ":"), ensure_ascii=False)
 
         except ValueError as e:
             return error_response("Synastry generation failed", str(e))
