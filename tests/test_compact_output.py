@@ -11,7 +11,7 @@ import json
 import pytest
 
 from astro_mcp.tools.natal import create_natal_chart
-from astro_mcp.tools.transit import create_transit_chart, list_upcoming_transits
+from astro_mcp.tools.transit import NATAL_FIELDS, create_transit_chart, list_upcoming_transits
 
 BIRTH = dict(date_time="1984-05-10T20:44:00", latitude=37.77, longitude=-122.42)
 
@@ -86,14 +86,12 @@ class TestSizeTiersPreferLosslessCompaction:
         assert "omitted" not in data
 
     def test_an_oversized_range_compacts_before_it_drops(self):
-        # Eight months: over the budget as named objects, but small enough
+        # Seven months: over the budget as named objects, but small enough
         # that positional encoding alone brings it back under.
         data = json.loads(list_upcoming_transits(
-            start_date="2026-09-25", end_date="2027-05-25", **self.BIRTH))
+            start_date="2026-09-25", end_date="2027-03-25", **self.BIRTH))
         # Compaction happened...
-        assert data["span_fields"] == [
-            "start", "end", "from_object", "to_object", "type", "orb", "exact",
-        ]
+        assert data["span_fields"] == NATAL_FIELDS
         assert isinstance(data["transits"][0], list)
         # ...and was enough, so nothing was thrown away.
         assert "omitted" not in data

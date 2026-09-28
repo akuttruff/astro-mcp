@@ -1014,8 +1014,8 @@ class TestListUpcomingTransitsForecast:
         assert data["omitted"]["objects"] == ["Mercury", "Moon"]
         assert data["omitted"]["spans"]["Moon"] >= 1
         assert "object_filter" in data["omitted"]["hint"]
-        assert data["span_fields"] == ["start", "end", "from_object", "to_object", "type", "orb", "exact"]
-        assert all(isinstance(t, list) and len(t) == 7 for t in data["transits"])
+        assert data["span_fields"][:7] == ["start", "end", "from_object", "to_object", "type", "orb", "exact"]
+        assert all(isinstance(t, list) and len(t) == len(data["span_fields"]) for t in data["transits"])
         from_objects = {t[2] for t in data["transits"]}
         assert from_objects.isdisjoint({"Moon", "Mercury"})
         assert data["total_transits"] == len(data["transits"])

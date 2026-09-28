@@ -140,6 +140,69 @@ def _sample_fast_body(samples: dict, name: str, step_hours: int,
                 by_day[day_iso] = orb if previous is None else min(previous, orb)
 
 
+ZODIAC = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+          "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+
+# Field order for spans encoded as positional arrays (see span_fields). The
+# house fields need a birth chart to mean anything, so general mode omits them.
+BASE_FIELDS = ["start", "end", "from_object", "to_object", "type", "orb", "exact",
+               "from_sign", "to_sign"]
+NATAL_FIELDS = BASE_FIELDS + ["from_house", "to_house", "from_retrograde"]
+GENERAL_FIELDS = BASE_FIELDS + ["from_retrograde", "to_retrograde"]
+
+
+def _house_of(lon: float, cusps: list[tuple[int, float]]) -> int:
+    """House number a longitude falls in, from the natal chart's cusps.
+
+    cusps is [(house number, cusp longitude)] in house order, which is also
+    zodiacal order, so house n runs from its cusp to the next one. Works for
+    any house system, not only whole sign.
+    """
+    for i, (number, cusp) in enumerate(cusps):
+        following = cusps[(i + 1) % len(cusps)][1]
+        if (lon - cusp) % 360 < (following - cusp) % 360:
+            return number
+    return cusps[0][0]
+
+
+def _peak_facts(from_name: str, to_name: str, ids: dict[str, int],
+                natal_positions: dict | None, natal_houses: dict | None,
+                cusps: list[tuple[int, float]] | None,
+                exact: str | None, peak_day: str, tz) -> dict:
+    """What the two bodies are doing at the aspect's tightest moment.
+
+    Signs for both; in natal mode the natal houses involved and whether the
+    transiting body is retrograde, in general mode whether either is. That
+    moment is the exact one when the scan found it, otherwise local midnight
+    of the day with the smallest orb. Read from the same ephemeris the
+    aspect was found with, so it always agrees with the spans.
+    """
+    from immanuel.tools import ephemeris
+
+    if exact:
+        moment = datetime.strptime(exact, "%Y-%m-%d %H:%M").replace(tzinfo=tz)
+    else:
+        day = date.fromisoformat(peak_day)
+        moment = datetime(day.year, day.month, day.day, tzinfo=tz)
+    jd = _jd_of(moment)
+
+    a = ephemeris.get_planet(ids[from_name], jd)
+    from_lon = a["lon"] % 360
+    facts = {"from_sign": ZODIAC[int(from_lon // 30)]}
+    if natal_positions is not None:
+        to_lon = natal_positions[to_name] % 360
+        facts["to_sign"] = ZODIAC[int(to_lon // 30)]
+        facts["from_house"] = _house_of(from_lon, cusps) if cusps else None
+        facts["to_house"] = natal_houses.get(to_name) if natal_houses else None
+        facts["from_retrograde"] = a["speed"] < 0
+    else:
+        b = ephemeris.get_planet(ids[to_name], jd)
+        facts["to_sign"] = ZODIAC[int((b["lon"] % 360) // 30)]
+        facts["from_retrograde"] = a["speed"] < 0
+        facts["to_retrograde"] = b["speed"] < 0
+    return facts
+
+
 def _object_ids(chart) -> dict[str, int]:
     """Major object name -> immanuel object id, for raw ephemeris queries.
 
@@ -576,9 +639,18 @@ def list_upcoming_transits(
         Single-line JSON string with transit_range, mode ('natal' or
         'general'), total_transits, and transits. When the result fits the
         response size budget, each transit is an object with (start, end,
-        from_object, to_object, type, orb, exact). 'exact' is the local
-        date/time (nearest minute) when the aspect is exact; null when that
-        moment falls outside the scan window. Oversized results are
+        from_object, to_object, type, orb, exact, from_sign, to_sign, plus
+        the fields below). 'exact' is the local date/time (nearest minute)
+        when the aspect is exact; null when that moment falls outside the
+        scan window. Everything after 'exact' describes the tightest moment,
+        so read it from here rather than working it out from a chart:
+        from_sign / to_sign are the zodiac signs of the two objects ("Mars
+        square Pluto" reads as Mars in Leo, Pluto in Scorpio); with a birth
+        chart, from_house is the natal house the transiting object is moving
+        through, to_house the natal house of the natal object it touches, and
+        from_retrograde whether the transiting object is retrograde; without
+        one, from_retrograde and to_retrograde say that for each of the two.
+        Oversized results are
         condensed: high-frequency Moon/Mercury spans are auto-omitted
         (reported in 'omitted'), and if still oversized the spans are
         re-encoded as positional arrays matching the 'span_fields' legend.
@@ -656,6 +728,8 @@ def list_upcoming_transits(
         # Natal reference (only when birth data was provided)
         natal_chart = None
         natal_positions = None
+        natal_houses = None
+        cusps = None
         if has_natal:
             native = charts.Subject(
                 date_time=date_time.replace("T", " "),
@@ -668,6 +742,14 @@ def list_upcoming_transits(
                 for obj in natal_chart.objects.values()
                 if obj.name in NATAL_TRANSIT_TARGETS
             }
+            natal_houses = {
+                obj.name: obj.house.number
+                for obj in natal_chart.objects.values()
+                if obj.name in NATAL_TRANSIT_TARGETS and obj.house
+            }
+            cusps = sorted(
+                (h.number, h.longitude.raw % 360) for h in natal_chart.houses.values()
+            )
 
         # Timezone + object ids for exact-moment refinement. In general mode
         # there is no natal chart, so the ids come from the first scanned chart.
@@ -784,6 +866,15 @@ def list_upcoming_transits(
                     run.append(d)
             runs.append(run)
             for run in runs:
+                exact = _refine_span_exact(
+                    run, from_obj, to_obj, aspect_type,
+                    object_ids, natal_positions, tz
+                )
+                peak_day = min(run, key=lambda d: orb_by_day[d])
+                facts = _peak_facts(
+                    from_obj, to_obj, object_ids, natal_positions, natal_houses,
+                    cusps, exact, peak_day, tz
+                )
                 transits.append({
                     "start": run[0],
                     "end": run[-1],
@@ -793,10 +884,11 @@ def list_upcoming_transits(
                     "orb": round(min(orb_by_day[d] for d in run), 2),
                     # Local moment the aspect is exact; null when the
                     # crossing falls outside the scan window.
-                    "exact": _refine_span_exact(
-                        run, from_obj, to_obj, aspect_type,
-                        object_ids, natal_positions, tz
-                    ),
+                    "exact": exact,
+                    # Signs, houses and retrograde state at the tightest
+                    # moment, so "Mars square Pluto" arrives as "Mars in Leo
+                    # (5th house) square Pluto in Scorpio".
+                    **facts,
                 })
 
         transits.sort(key=lambda x: (x["start"], x["from_object"], x["to_object"]))
@@ -840,6 +932,8 @@ def list_upcoming_transits(
                 "date_time/latitude/longitude to relate transits to a birth chart."
             )
 
+        fields = NATAL_FIELDS if natal_positions is not None else GENERAL_FIELDS
+
         # Single-line compact JSON keeps responses small for the LLM
         payload = json.dumps(result, separators=(",", ":"), ensure_ascii=False)
 
@@ -852,10 +946,10 @@ def list_upcoming_transits(
             # repeated object keys), documented by 'span_fields'. No data is
             # lost -- only the key names, which the legend restores.
             result["transits"] = [
-                [t["start"], t["end"], t["from_object"], t["to_object"], t["type"], t["orb"], t["exact"]]
+                [t[f] for f in fields]
                 for t in transits
             ]
-            result["span_fields"] = ["start", "end", "from_object", "to_object", "type", "orb", "exact"]
+            result["span_fields"] = fields
             payload = json.dumps(result, separators=(",", ":"), ensure_ascii=False)
 
             # Tier 2: only if compaction was not enough, drop the most
@@ -876,7 +970,7 @@ def list_upcoming_transits(
                     transits = [t for t in transits if t["from_object"] not in fast_objects]
                     result["total_transits"] = len(transits)
                     result["transits"] = [
-                        [t["start"], t["end"], t["from_object"], t["to_object"], t["type"], t["orb"], t["exact"]]
+                        [t[f] for f in fields]
                         for t in transits
                     ]
                     result["omitted"] = {
