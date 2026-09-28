@@ -122,6 +122,37 @@ def _sun_event(jd_start: float, lat: float, lon: float, rise: bool) -> float | N
     return tret[0] if res == 0 else None
 
 
+def hour_at(jd: float, lat: float, lon: float, tz) -> dict | None:
+    """The planetary hour in effect at a moment: its ruler, number and the
+    day's ruler. The planetary day runs from sunrise to sunrise, so a moment
+    before dawn belongs to the previous day. None where the Sun doesn't rise
+    and set (polar day or night)."""
+    rise = _sun_event(jd - 2, lat, lon, rise=True)
+    if rise is None:
+        return None
+    while True:
+        following = _sun_event(rise + 0.01, lat, lon, rise=True)
+        if following is None or following > jd:
+            break
+        rise = following
+    sunset = _sun_event(rise, lat, lon, rise=False)
+    next_rise = _sun_event(sunset, lat, lon, rise=True) if sunset is not None else None
+    if sunset is None or next_rise is None:
+        return None
+    day_ruler = DAY_RULERS[_dt(rise, tz).weekday()]
+    if jd < sunset:
+        n = int((jd - rise) / ((sunset - rise) / 12))
+    else:
+        n = 12 + int((jd - sunset) / ((next_rise - sunset) / 12))
+    n = max(0, min(23, n))
+    return {
+        "hour": n + 1,
+        "period": "day" if n < 12 else "night",
+        "ruler": CHALDEAN[(CHALDEAN.index(day_ruler) + n) % 7],
+        "day_ruler": day_ruler,
+    }
+
+
 def planetary_hours(
     date: Annotated[str | None, Field(description="The day, 'YYYY-MM-DD'. Omit for today at the place.")] = None,
     latitude: str | float | None = None,

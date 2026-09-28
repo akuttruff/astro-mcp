@@ -13,6 +13,7 @@ An MCP (Model Context Protocol) server that exposes the [immanuel-python](https:
 - **Planetary hours** - The day's ruler and its 24 unequal hours from local sunrise and sunset, and the hour in effect now
 - **Void-of-course Moon** - Each period from the Moon's last major aspect in a sign until she changes sign, and whether she is void now (traditional seven planets, or including the outer planets)
 - **Lunations and eclipses** - New and full moons and solar and lunar eclipses in a date range, with exact local times and degrees; optionally the natal house and contacts of each in a birth chart
+- **Horary** - `judge_question` answers a question from the chart of the moment it is asked: significators from the houses (including derived houses), then perfection, prohibition, translation and collection of light, refranation, reception, traditional timing, and the considerations before judgment. `cast_horary_chart` shows the chart itself: Regiomontanus houses, traditional rulers, Lilly's triplicities and Ptolemy's terms, with each planet's essential dignity score and condition
 - **Reference tools** - List available house systems and chart objects
 - **Flexible location input** - Provide birth location as coordinates (lat/lon) OR city/state/country with automatic geocoding
 

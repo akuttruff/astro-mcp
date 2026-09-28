@@ -4,7 +4,7 @@ import json
 from mcp.server.mcpserver import MCPServer
 
 from astro_mcp.config import HOUSE_SYSTEMS_INFO
-from astro_mcp.tools import natal, solar_return, progressed, transit, synastry, timing
+from astro_mcp.tools import natal, solar_return, progressed, transit, synastry, timing, horary
 from astro_mcp.utils import get_current_datetime
 
 # Create MCPServer instance
@@ -24,6 +24,11 @@ mcp = MCPServer(
         "for 'is the Moon void?' or choosing a time to start something use moon_void_periods; for new/full moons and "
         "eclipses (and how they fall in a birth chart) use lunations_and_eclipses. These compute the traditional rules "
         "for you: report their results, never work out hours, void periods or lunation dates yourself. "
+        "Horary routing: when the user asks a yes/no question about a situation ('will I get the job?', 'will he "
+        "come back?', 'where is my ring?'), answer it with judge_question: pick quesited_house from its house guide; "
+        "the time defaults to now, and a place is required. Lead with its summary, cite its testimony and flagged "
+        "considerations, and never judge the chart yourself. Use cast_horary_chart only to show the chart itself. "
+        "Horary uses its own traditional settings (Regiomontanus), regardless of the house system used elsewhere. "
         "Use whole_sign houses (default) unless the user explicitly requests another system. "
         "Date format: pass all datetimes as ISO 8601 'YYYY-MM-DD HH:MM' (e.g. '1984-05-10 20:44') and date-only "
         "params as 'YYYY-MM-DD'. Convert natural-language dates from the user (e.g. 'May 10, 1984 8:44 PM' -> "
@@ -41,6 +46,7 @@ def register_tools():
     transit.register(mcp)
     synastry.register(mcp)
     timing.register(mcp)
+    horary.register(mcp)
 
 
 def register_reference_tools():
