@@ -7,7 +7,12 @@ from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pydantic import Field
 
-from astro_mcp.utils import describe_chart_error, NATAL_TRANSIT_TARGETS, compact_chart_json, error_response, calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, MAJOR_ASPECTS, filter_aspects, validate_date_string, validate_latitude, validate_longitude, validate_house_system, assign_natal_houses_to_transit_objects
+from astro_mcp.utils import (
+    describe_chart_error, NATAL_TRANSIT_TARGETS, SIGNS, compact_chart_json, error_response,
+    calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, MAJOR_ASPECTS, filter_aspects,
+    validate_date_string, validate_latitude, validate_longitude, validate_house_system,
+    assign_natal_houses_to_transit_objects, sign_position, natal_positions_block, canonical_point, orb_for,
+)
 from astro_mcp.config import get_config
 from astro_mcp.schemas import get_coordinates_for_params
 
@@ -140,15 +145,21 @@ def _sample_fast_body(samples: dict, name: str, step_hours: int,
                 by_day[day_iso] = orb if previous is None else min(previous, orb)
 
 
-ZODIAC = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-          "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+ZODIAC = SIGNS
 
-# Field order for spans encoded as positional arrays (see span_fields). The
-# house fields need a birth chart to mean anything, so general mode omits them.
-BASE_FIELDS = ["start", "end", "from_object", "to_object", "type", "orb", "exact",
-               "from_sign", "to_sign"]
-NATAL_FIELDS = BASE_FIELDS + ["from_house", "to_house", "from_retrograde"]
-GENERAL_FIELDS = BASE_FIELDS + ["from_retrograde", "to_retrograde"]
+# Field order for spans encoded as positional arrays (see span_fields) --
+# the slimmed form an oversized response falls back to. Only what can't be
+# read off elsewhere is kept: from_sign is the last word of from_position,
+# and in natal mode the natal end is natal.positions[to_object], so those
+# are left out here (the full-object form carries all of them). The house
+# fields need a birth chart to mean anything, so general mode omits them.
+COMPACT_BASE_FIELDS = ["start", "end", "from_object", "to_object", "type", "orb", "exact", "from_position"]
+NATAL_FIELDS = COMPACT_BASE_FIELDS + ["from_house", "to_house", "from_retrograde"]
+GENERAL_FIELDS = COMPACT_BASE_FIELDS + ["to_position", "from_retrograde", "to_retrograde"]
+SPAN_FIELDS_NOTE = (
+    "Spans are positional arrays in span_fields order. A sign is the last word of a *_position; "
+    "in natal mode the natal end of each span is natal.positions[to_object]."
+)
 
 
 def _house_of(lon: float, cusps: list[tuple[int, float]]) -> int:
@@ -171,11 +182,14 @@ def _peak_facts(from_name: str, to_name: str, ids: dict[str, int],
                 exact: str | None, peak_day: str, tz) -> dict:
     """What the two bodies are doing at the aspect's tightest moment.
 
-    Signs for both; in natal mode the natal houses involved and whether the
-    transiting body is retrograde, in general mode whether either is. That
-    moment is the exact one when the scan found it, otherwise local midnight
-    of the day with the smallest orb. Read from the same ephemeris the
-    aspect was found with, so it always agrees with the spans.
+    Sign and degree ("11°24' Aries") for both ends, so an aspect reads as
+    "Saturn 11°24' Aries square natal Saturn 12°03' Scorpio" with nothing
+    left for the reader to supply; in natal mode the natal houses involved
+    and whether the transiting body is retrograde, in general mode whether
+    either is. That moment is the exact one when the scan found it,
+    otherwise local midnight of the day with the smallest orb. Read from
+    the same ephemeris the aspect was found with, so it always agrees with
+    the spans.
     """
     from immanuel.tools import ephemeris
 
@@ -187,20 +201,39 @@ def _peak_facts(from_name: str, to_name: str, ids: dict[str, int],
     jd = _jd_of(moment)
 
     a = ephemeris.get_planet(ids[from_name], jd)
-    from_lon = a["lon"] % 360
-    facts = {"from_sign": ZODIAC[int(from_lon // 30)]}
+    at = sign_position(a["lon"])
+    facts = {"from_sign": at["sign"], "from_position": at["position"]}
     if natal_positions is not None:
-        to_lon = natal_positions[to_name] % 360
-        facts["to_sign"] = ZODIAC[int(to_lon // 30)]
-        facts["from_house"] = _house_of(from_lon, cusps) if cusps else None
+        to = sign_position(natal_positions[to_name])
+        facts["to_sign"] = to["sign"]
+        facts["to_position"] = to["position"]
+        facts["from_house"] = _house_of(at["longitude"], cusps) if cusps else None
         facts["to_house"] = natal_houses.get(to_name) if natal_houses else None
         facts["from_retrograde"] = a["speed"] < 0
     else:
         b = ephemeris.get_planet(ids[to_name], jd)
-        facts["to_sign"] = ZODIAC[int((b["lon"] % 360) // 30)]
+        to = sign_position(b["lon"])
+        facts["to_sign"] = to["sign"]
+        facts["to_position"] = to["position"]
         facts["from_retrograde"] = a["speed"] < 0
         facts["to_retrograde"] = b["speed"] < 0
     return facts
+
+
+def _spans_per_object(transits: list[dict], scanned: list[str], natal_mode: bool) -> dict:
+    """How many spans each scanned object has -- zeros included.
+
+    A planet with no aspects in the window is listed as 0 rather than left
+    out: absence in a list is what a reader quietly fills in, an explicit
+    zero is a fact. In general mode both ends of a pair count, since the
+    pair's order is only a convention.
+    """
+    counts = {name: 0 for name in scanned}
+    for t in transits:
+        counts[t["from_object"]] = counts.get(t["from_object"], 0) + 1
+        if not natal_mode:
+            counts[t["to_object"]] = counts.get(t["to_object"], 0) + 1
+    return counts
 
 
 def _object_ids(chart) -> dict[str, int]:
@@ -545,16 +578,32 @@ def create_transit_chart(
         tz = _chart_tz(latitude, longitude)
         object_ids = _object_ids(transit_chart)
         snapshot = datetime.fromisoformat(transit_dt).replace(tzinfo=tz)
+        natal_block = natal_positions_block(natal_chart)
+        transit_positions = {
+            obj.name: obj.longitude.raw % 360
+            for obj in transit_chart.objects.values()
+            if obj.name in MAJOR_OBJECTS
+        }
         for aspect in filtered_aspects:
             aspect["exact_at"] = _aspect_exact_at(aspect, object_ids, natal_positions, snapshot)
+            # Both ends spelled out, so "Saturn square Saturn" can only be
+            # read as what it is: the transiting and the natal degree.
+            moving = sign_position(transit_positions[aspect["from_object"]])
+            fixed = natal_block[aspect["to_object"]]
+            aspect["from_sign"] = moving["sign"]
+            aspect["from_position"] = moving["position"]
+            aspect["to_sign"] = fixed["sign"]
+            aspect["to_position"] = fixed["position"]
+            aspect["to_house"] = fixed["house"]
 
         # Assign transit objects to natal chart houses (fixes house assignment bug)
         assigned_houses = assign_natal_houses_to_transit_objects(transit_chart, natal_chart, house_system or 'whole_sign')
 
         # Serialize compactly: transiting objects placed in the NATAL chart's
-        # houses, with the filtered transit-to-natal aspects as "aspects".
-        # The note steers the calling LLM away from estimating transit timing
-        # itself from this single-moment chart.
+        # houses, with the filtered transit-to-natal aspects as "aspects" and
+        # the natal positions they are measured against as "natal". The note
+        # steers the calling LLM away from estimating transit timing itself
+        # from this single-moment chart.
         return compact_chart_json(
             transit_chart,
             chart_type="transit",
@@ -564,13 +613,21 @@ def create_transit_chart(
             houses_chart=natal_chart,
             aspects=filtered_aspects,
             extra={
+                "natal": {
+                    "date_time": date_time.replace("T", " "),
+                    "house_system": house_system or 'whole_sign',
+                    "positions": natal_block,
+                },
                 "note": (
-                    f"This chart reflects the single moment {transit_dt}. Each aspect's "
-                    "'exact_at' is the local moment it is (or was) exact - null when that "
-                    "moment lies more than 180 days from the snapshot. For 'what is coming "
-                    "up / how long does it last', call list_upcoming_transits with "
-                    "start_date/end_date instead of estimating timing from this chart."
-                )
+                    f"This chart reflects the single moment {transit_dt}. 'objects' are the "
+                    "transiting bodies (in the natal chart's houses); 'natal.positions' are the "
+                    "natal points, angles included, that 'aspects' are measured against -- quote "
+                    "both ends from from_position/to_position. Each aspect's 'exact_at' is the "
+                    "local moment it is (or was) exact - null when that moment lies more than "
+                    "180 days from the snapshot. For 'what is coming up / how long does it last', "
+                    "call list_upcoming_transits with start_date/end_date instead of estimating "
+                    "timing from this chart."
+                ),
             },
         )
 
@@ -897,13 +954,22 @@ def list_upcoming_transits(
         if object_names is not None:
             transits = [t for t in transits if t["from_object"] in object_names]
 
+        # Every object the scan actually covered: the per-object counts below
+        # list each of these, zero or not.
+        scanned = [
+            name for name in MAJOR_OBJECTS
+            if name not in excluded_fast and (object_names is None or name in object_names)
+        ]
+        natal_mode = natal_positions is not None
+
         result = {
             "transit_range": {
                 "start": start_date,
                 "end": end_date
             },
-            "mode": "natal" if natal_positions is not None else "general",
+            "mode": "natal" if natal_mode else "general",
             "total_transits": len(transits),
+            "spans_per_object": _spans_per_object(transits, scanned, natal_mode),
             "transits": transits,
         }
         if excluded_fast:
@@ -920,10 +986,14 @@ def list_upcoming_transits(
         if object_names is not None:
             result["object_filter"] = sorted(object_names)
         if natal_positions is not None:
+            # The natal chart the spans are measured against, so each
+            # 'to_object' can be read off here rather than remembered.
             result["natal"] = {
-                "date_time": date_time,
+                "date_time": date_time.replace("T", " "),
                 "latitude": float(latitude),
                 "longitude": float(longitude),
+                "house_system": "whole_sign",
+                "positions": natal_positions_block(natal_chart),
             }
         else:
             result["note"] = (
@@ -950,6 +1020,7 @@ def list_upcoming_transits(
                 for t in transits
             ]
             result["span_fields"] = fields
+            result["span_fields_note"] = SPAN_FIELDS_NOTE
             payload = json.dumps(result, separators=(",", ":"), ensure_ascii=False)
 
             # Tier 2: only if compaction was not enough, drop the most
@@ -969,6 +1040,9 @@ def list_upcoming_transits(
                 if omitted:
                     transits = [t for t in transits if t["from_object"] not in fast_objects]
                     result["total_transits"] = len(transits)
+                    result["spans_per_object"] = _spans_per_object(
+                        transits, [n for n in scanned if n not in fast_objects], natal_mode
+                    )
                     result["transits"] = [
                         [t[f] for f in fields]
                         for t in transits
@@ -1008,14 +1082,183 @@ def list_upcoming_transits(
         return error_response("Transit scanning failed", f"Unexpected error: {str(e)}")
 
 
+def verify_claim(
+    date_time: Annotated[str, Field(description="Birth date and time of the natal chart in ISO 8601: 'YYYY-MM-DD HH:MM'.")],
+    transiting_object: Annotated[str, Field(description="The transiting planet in the claim, e.g. 'Saturn'. One of: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron.")],
+    natal_object: Annotated[str, Field(description="The natal point it is said to aspect, e.g. 'Saturn', 'Asc' (or 'Ascendant'), 'MC' (or 'Midheaven'), 'North Node'.")],
+    aspect_type: Annotated[str, Field(description="Conjunction, Opposition, Square, Trine or Sextile.")],
+    on_date: Annotated[str, Field(description="The date the claim is about, 'YYYY-MM-DD': the day the aspect is said to be exact or in effect.")],
+    latitude: str | float | None = None,
+    longitude: str | float | None = None,
+    max_orb: Annotated[float | None, Field(description="Widest orb that still counts as 'in effect' on that date. Default: the orb the transit scan itself uses for these two bodies.")] = None,
+    city: Annotated[str | None, Field(description="Birth city, geocoded to coordinates. Use instead of latitude/longitude.")] = None,
+    state: Annotated[str | None, Field(description="State or province, to disambiguate the city.")] = None,
+    country: Annotated[str | None, Field(description="Country, to disambiguate the city.")] = None,
+) -> str:
+    """Check one transit claim against the ephemeris: was this aspect really in effect on that date, and when is it exact?
+
+    Use it before stating a transit you have not just read from a tool
+    result -- "Saturn trine natal Saturn, exact Oct 3" -- and report what it
+    returns rather than the claim. Cheap: one ephemeris lookup, the same
+    engine the transit tools use.
+
+    Returns a verdict:
+    - 'confirmed': the aspect is within orb on that date (positions and orb
+      given, and the exact moment if it falls within 180 days).
+    - 'near': not within orb that day, but exact within 30 days of it -- the
+      claim has the right aspect and the wrong date; the exact moment says
+      which.
+    - 'not found': nothing like it in the ephemeris around that date.
+    """
+    if city is not None and (latitude is None or longitude is None):
+        try:
+            lat_val, lon_val, _matched = get_coordinates_for_params(None, None, city, state, country)
+        except Exception as e:
+            return error_response("Geocoding failed", str(e))
+        latitude, longitude = lat_val, lon_val
+    if latitude is None or longitude is None:
+        return error_response(
+            "Invalid location",
+            "Provide latitude and longitude, or a city (with state/country to disambiguate).",
+        )
+    latitude, longitude = str(latitude), str(longitude)
+
+    for label, check, value in (
+        ("Invalid birth date", validate_date_string, date_time),
+        ("Invalid latitude", validate_latitude, latitude),
+        ("Invalid longitude", validate_longitude, longitude),
+        ("Invalid on_date", validate_date_string, f"{on_date} 00:00"),
+    ):
+        valid, error = check(value)
+        if not valid:
+            return error_response(label, error)
+
+    moving = canonical_point(transiting_object, MAJOR_OBJECTS)
+    if moving is None:
+        return error_response(
+            "Unknown transiting object",
+            f"{transiting_object!r} is not one of {', '.join(MAJOR_OBJECTS)}",
+        )
+    fixed = canonical_point(natal_object, NATAL_TRANSIT_TARGETS)
+    if fixed is None:
+        return error_response(
+            "Unknown natal point",
+            f"{natal_object!r} is not one of {', '.join(NATAL_TRANSIT_TARGETS)} (Ascendant, Midheaven and North Node are accepted too)",
+        )
+    aspect = next((name for name in MAJOR_ASPECTS if name.lower() == (aspect_type or "").strip().lower()), None)
+    if aspect is None:
+        return error_response("Unknown aspect", f"{aspect_type!r} is not one of {', '.join(MAJOR_ASPECTS)}")
+    if max_orb is not None:
+        try:
+            max_orb = float(max_orb)
+        except (TypeError, ValueError):
+            return error_response("Invalid max_orb", "Must be a number")
+        if max_orb < 0:
+            return error_response("Invalid max_orb", "Must be a positive number")
+
+    try:
+        from immanuel import charts
+        from immanuel.tools import ephemeris
+
+        config = get_config(None)
+        native = charts.Subject(
+            date_time=date_time.replace("T", " "), latitude=float(latitude), longitude=float(longitude),
+        )
+        natal_chart = charts.Natal(native, config=config)
+        natal_positions = {
+            obj.name: obj.longitude.raw % 360
+            for obj in natal_chart.objects.values()
+            if obj.name in NATAL_TRANSIT_TARGETS
+        }
+        natal_block = natal_positions_block(natal_chart)
+        ids = _object_ids(natal_chart)
+
+        # Local noon of the claimed day: the middle of it, so a same-day
+        # aspect is judged at its most representative moment.
+        tz = _chart_tz(latitude, longitude)
+        day = date.fromisoformat(on_date)
+        noon = datetime(day.year, day.month, day.day, 12, 0, tzinfo=tz)
+        at = ephemeris.get_planet(ids[moving], _jd_of(noon))
+        angle = MAJOR_ASPECTS[aspect][0]
+        natal_lon = natal_positions[fixed]
+        orb = abs(_signed_orb(at["lon"], natal_lon, angle, _aspect_side(at["lon"], natal_lon, angle)))
+        allowed = max_orb if max_orb is not None else orb_for(aspect, moving, fixed)
+        within = orb <= allowed
+
+        exact = _aspect_exact_at(
+            {"from_object": moving, "to_object": fixed, "type": aspect}, ids, natal_positions, noon,
+        )
+        days_off = None
+        if exact:
+            exact_dt = datetime.strptime(exact, "%Y-%m-%d %H:%M").replace(tzinfo=tz)
+            days_off = round((exact_dt - noon).total_seconds() / 86400, 1)
+
+        if within:
+            verdict = "confirmed"
+        elif days_off is not None and abs(days_off) <= 30:
+            verdict = "near"
+        else:
+            verdict = "not found"
+
+        claim = f"transiting {moving} {aspect.lower()} natal {fixed} on {on_date}"
+        notes = {
+            "confirmed": f"In effect on {on_date}: orb {orb:.2f}° (allowed {allowed:.2f}°)."
+                         + (f" Exact at {exact}." if exact else " Exact moment more than 180 days away."),
+            "near": f"Not within orb on {on_date} ({orb:.2f}°, allowed {allowed:.2f}°), but exact at {exact}, "
+                    f"{abs(days_off or 0):.1f} days {'later' if (days_off or 0) > 0 else 'earlier'}. The date is off, not the aspect.",
+            "not found": f"No {aspect.lower()} between transiting {moving} and natal {fixed} on {on_date} "
+                         f"(orb {orb:.2f}°, allowed {allowed:.2f}°)"
+                         + (f"; the nearest exact moment is {exact}." if exact else "; none within 180 days of it."),
+        }
+        return json.dumps({
+            "claim": claim,
+            "verdict": verdict,
+            "on_date": {
+                "date": on_date,
+                "orb": round(orb, 2),
+                "allowed_orb": round(allowed, 2),
+                "within_orb": within,
+                "transiting": {**sign_position(at["lon"]), "retrograde": at["speed"] < 0},
+                "natal": natal_block[fixed],
+            },
+            "exact": exact,
+            "days_from_date": days_off,
+            "note": notes[verdict],
+        }, separators=(",", ":"), ensure_ascii=False)
+
+    except ValueError as e:
+        return error_response("Claim check failed", str(e))
+    except ImportError as e:
+        return error_response("immanuel library not available", str(e))
+    except Exception as e:
+        known = describe_chart_error(e)
+        if known:
+            return error_response(*known)
+        return error_response("Claim check failed", f"Unexpected error: {str(e)}")
+
+
 def register(mcp: MCPServer):
     """Register transit tools with MCPServer."""
+    mcp.add_tool(
+        verify_claim,
+        name="verify_claim",
+        description=(
+            "Check one transit claim against the ephemeris before stating it: 'is transiting Saturn trine natal "
+            "Saturn in effect on 2026-10-03, and when is it exact?' Returns 'confirmed' (within orb that day, with "
+            "both positions, the orb and the exact moment), 'near' (right aspect, wrong date -- exact within 30 days, "
+            "and when), or 'not found'. Use it whenever you are about to assert a transit you have not just read "
+            "from create_transit_chart or list_upcoming_transits, and report its verdict, not the claim."
+        ),
+    )
     mcp.add_tool(
         create_transit_chart,
         name="create_transit_chart",
         description=(
-            "Generate a transit chart for ONE specific moment: transiting planet positions (in the natal chart's houses) "
-            "and their aspects to the natal chart. Use for 'what is the sky like right now' (omit transit_date_time) "
+            "Generate a transit chart for ONE specific moment: transiting planet positions (in the natal chart's houses), "
+            "the natal positions they are measured against ('natal.positions', angles included), and the aspects between "
+            "them -- each aspect carries both ends as from_position/to_position (e.g. \"Saturn 11°24' Aries square natal "
+            "Saturn 12°03' Scorpio\"), so quote those rather than recalling the natal chart. "
+            "Use for 'what is the sky like right now' (omit transit_date_time) "
             "or a user-given date/time, and for lunation work (set transit_date_time to the exact moment of a new or full moon). "
             "Each aspect includes 'exact_at': the local moment (nearest minute) it is or was exact, so 'when exactly does X "
             "aspect Y' is answered directly (null when more than 180 days away). NOT for span or duration questions - it "
@@ -1032,7 +1275,10 @@ def register(mcp: MCPServer):
             "THE tool for transit timing questions: 'what transits are coming up', 'when will X next happen', "
             "and 'how long does it last' (each aspect is listed once with start/end dates and its tightest orb, "
             "so the span is the duration; each span also carries 'exact', the local date/time to the minute when "
-            "the aspect is exact - null when that moment falls outside the scan window). The ephemeris does the "
+            "the aspect is exact - null when that moment falls outside the scan window, and both ends as "
+            "from_position/to_position with sign and degree). With birth data the response includes 'natal.positions' "
+            "(every natal point, angles included, with sign, degree and house) and 'spans_per_object' (a count per "
+            "scanned planet, 0 when it aspects nothing in the window -- an explicit zero, not an omission). The ephemeris does the "
             "timing calculation - do not estimate dates or durations yourself from a single chart. With birth data "
             "(date_time + latitude + longitude): transits in "
             "relation to that natal chart (transiting planets aspecting natal planets). Without birth data: transits "

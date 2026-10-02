@@ -607,6 +607,74 @@ MAJOR_OBJECTS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn',
 # angle itself. Including both would double every angular contact.
 NATAL_TRANSIT_TARGETS = MAJOR_OBJECTS + ['Asc', 'MC', 'True North Node']
 
+SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+         "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+
+# What a reader might call a natal point, mapped to the name the charts use.
+# "Saturn trine my Ascendant" has to find Asc, not fail on spelling.
+POINT_ALIASES = {
+    'ascendant': 'Asc', 'asc': 'Asc', 'rising': 'Asc',
+    'midheaven': 'MC', 'mc': 'MC',
+    'north node': 'True North Node', 'true north node': 'True North Node', 'node': 'True North Node',
+}
+
+
+def format_dms(degrees_in_sign: float) -> str:
+    """12.35 -> "12°21'": degrees and minutes within a sign, as charts print them."""
+    total_minutes = int(round(degrees_in_sign * 60))
+    d, m = divmod(total_minutes, 60)
+    if d >= 30:  # rounding at the very top of a sign stays in it
+        d, m = 29, 59
+    return f"{d}°{m:02d}'"
+
+
+def sign_position(longitude: float) -> dict:
+    """A longitude as the reader needs it: {longitude, sign, position}.
+
+    'position' is the "12°21' Scorpio" form every aspect quotes, so the
+    same string appears wherever the same point does and can be matched
+    by eye.
+    """
+    lon = longitude % 360
+    index = int(lon // 30)
+    return {
+        "longitude": round(lon, 4),
+        "sign": SIGNS[index],
+        "position": f"{format_dms(lon - index * 30)} {SIGNS[index]}",
+    }
+
+
+def natal_positions_block(natal_chart: Any, names: list[str] | None = None) -> dict:
+    """The natal points a transit can touch, each with sign, degree and house.
+
+    Shipped inside transit responses so "Saturn square natal Saturn" arrives
+    with where natal Saturn actually is: the reader quotes it instead of
+    remembering (or inventing) it. The angles (Asc, MC) are included with
+    their fixed degrees.
+    """
+    wanted = names or NATAL_TRANSIT_TARGETS
+    block = {}
+    for obj in natal_chart.objects.values():
+        if obj.name not in wanted:
+            continue
+        entry = sign_position(obj.longitude.raw)
+        house = getattr(obj, "house", None)
+        entry["house"] = house.number if house is not None else None
+        block[obj.name] = entry
+    return block
+
+
+def canonical_point(name: str, allowed: list[str]) -> str | None:
+    """The chart's own name for a point as a reader might write it, or None."""
+    raw = (name or "").strip()
+    alias = POINT_ALIASES.get(raw.lower())
+    if alias in allowed:
+        return alias
+    for candidate in allowed:
+        if candidate.lower() == raw.lower():
+            return candidate
+    return None
+
 # Major aspects: name -> (exact angle, base detection orb in degrees).
 # The orb here is the widest case; the bodies involved narrow it -- see
 # ORB_WEIGHTS and orb_for().

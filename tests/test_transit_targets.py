@@ -47,7 +47,9 @@ def test_angles_still_get_exact_moments(upcoming):
 
 
 def test_a_snapshot_chart_reports_angular_contacts():
-    chart = json.loads(create_transit_chart(**BIRTH))
+    # A fixed moment and a wide orb: whether an angle happens to be aspected
+    # "now" changes from day to day, which made this fail on quiet days.
+    chart = json.loads(create_transit_chart(transit_date_time="2026-10-01 12:00", max_orb=10, **BIRTH))
     targets = {a["to_object"] for a in chart["aspects"]}
     assert targets & {"Asc", "MC"}, "snapshot chart omits the angles"
 
