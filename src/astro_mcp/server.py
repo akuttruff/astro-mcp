@@ -4,7 +4,7 @@ import json
 from mcp.server.mcpserver import MCPServer
 
 from astro_mcp.config import HOUSE_SYSTEMS_INFO
-from astro_mcp.tools import natal, solar_return, progressed, transit, synastry, timing, horary
+from astro_mcp.tools import natal, solar_return, progressed, transit, synastry, timing, horary, forecast
 
 # Create MCPServer instance
 mcp = MCPServer(
@@ -16,7 +16,9 @@ mcp = MCPServer(
         "Transit question routing: for 'what transits are coming up', 'when will X happen', or 'how long does this "
         "transit last', use list_upcoming_transits - it returns dated aspects computed by the ephemeris over a date "
         "range (with birth data: transits to that natal chart; without: transits as-is), so never estimate transit "
-        "timing or duration yourself from a single chart. "
+        "timing or duration yourself from a single chart. For a whole month ('my forecast for October') use "
+        "forecast_month, and for a year ahead use forecast_year: each returns a ranked, labelled digest to quote "
+        "from -- lead with its headline transits in order and do not add transits it does not list. "
         "Use create_transit_chart only for one specific moment: 'now' (omit transit_date_time) or a user-given date/time, "
         "e.g. the exact moment of a new or full moon for lunation work. "
         "Transit responses carry the natal positions they are measured against ('natal.positions') and both ends of "
@@ -50,6 +52,7 @@ def register_tools():
     synastry.register(mcp)
     timing.register(mcp)
     horary.register(mcp)
+    forecast.register(mcp)
 
 
 def register_reference_tools():
