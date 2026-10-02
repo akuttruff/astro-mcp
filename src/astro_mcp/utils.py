@@ -264,6 +264,10 @@ def classify_moon_phase(sun_longitude: float, moon_longitude: float) -> dict:
     phase = {key: False for key, _ in MOON_PHASES}
     phase[MOON_PHASES[index][0]] = True
     phase["formatted"] = MOON_PHASES[index][1]
+    # One plain answer alongside the booleans: a reader shown eight flags
+    # went looking for which was true and second-guessed what it meant.
+    phase["phase"] = MOON_PHASES[index][1]
+    phase["waxing"] = elongation < 180
     phase["elongation"] = round(elongation, 2)
     phase["illumination"] = round((1 - math.cos(math.radians(elongation))) / 2, 3)
     return phase
@@ -662,6 +666,23 @@ def natal_positions_block(natal_chart: Any, names: list[str] | None = None) -> d
         entry["house"] = house.number if house is not None else None
         block[obj.name] = entry
     return block
+
+
+def aspect_label(moving: str, moving_position: str, aspect: str, fixed: str, fixed_position: str,
+                 natal_mode: bool = True, natal_house: int | None = None) -> str:
+    """The aspect as one sentence with the roles spelled out.
+
+    "transiting Jupiter 19°53' Leo square natal Sun 20°38' Taurus (natal
+    house 6)" -- so that "Jupiter square Sun" and "Sun square Jupiter" can
+    never be mistaken for the same contact, and nothing about which end is
+    which has to be inferred from field order.
+    """
+    if natal_mode:
+        text = f"transiting {moving} {moving_position} {aspect.lower()} natal {fixed} {fixed_position}"
+        if natal_house:
+            text += f" (natal house {natal_house})"
+        return text
+    return f"{moving} {moving_position} {aspect.lower()} {fixed} {fixed_position}"
 
 
 def canonical_point(name: str, allowed: list[str]) -> str | None:

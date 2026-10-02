@@ -66,6 +66,33 @@ def test_every_span_carries_both_ends(week):
         assert r["to_position"] == natal[r["to_object"]]["position"]
 
 
+def test_every_span_reads_as_one_sentence_with_the_roles_and_moment(week):
+    for r in rows(week):
+        when = f"exact {r['exact']}" if r["exact"] else f"tightest "
+        assert r["label"].startswith(when)
+        assert f"transiting {r['from_object']} {r['from_position']} {r['type'].lower()} natal {r['to_object']} {r['to_position']}" in r["label"]
+        if r["to_house"]:
+            assert r["label"].endswith(f"(natal house {r['to_house']})")
+    assert "not where the bodies are today" in week["positions_note"]
+
+
+def test_the_two_directions_of_a_square_are_told_apart(week):
+    # "Jupiter square Sun" and "Sun square Jupiter" are different contacts; the labels can't be confused.
+    labels = [r["label"] for r in rows(week)]
+    for label in labels:
+        assert label.count("transiting") == 1 and label.count("natal") >= 1
+
+
+def test_the_moon_phase_gives_one_answer(snapshot):
+    phase = snapshot["moon_phase"]
+    assert phase["phase"] in {
+        "New", "Waxing Crescent", "First Quarter", "Waxing Gibbous", "Full", "Disseminating", "Third Quarter", "Balsamic",
+    }
+    assert phase["phase"] == phase["formatted"]
+    assert isinstance(phase["waxing"], bool)
+    assert sum(1 for k, v in phase.items() if v is True and k not in ("waxing",)) == 1  # exactly one phase flag
+
+
 def test_absence_is_an_explicit_zero():
     data = json.loads(list_upcoming_transits(
         start_date="2026-09-25", end_date="2026-10-02", object_filter="Sun,Saturn,Pluto", **BIRTH,
@@ -87,6 +114,9 @@ def test_a_snapshot_carries_the_natal_block_and_both_ends(snapshot):
     # The transiting side agrees with the objects block, to the minute.
     for a in snapshot["aspects"]:
         assert a["from_position"] == sign_position(snapshot["objects"][a["from_object"]]["longitude"])["position"]
+        # And the sentence has roles, movement and timing in it.
+        assert a["label"].startswith(f"transiting {a['from_object']} {a['from_position']} {a['type'].lower()} natal {a['to_object']}")
+        assert ", exact " in a["label"]
 
 
 def test_verify_claim_confirms_what_the_scan_found(week):

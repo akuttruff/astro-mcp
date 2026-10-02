@@ -12,6 +12,7 @@ from astro_mcp.utils import (
     calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, MAJOR_ASPECTS, filter_aspects,
     validate_date_string, validate_latitude, validate_longitude, validate_house_system,
     assign_natal_houses_to_transit_objects, sign_position, natal_positions_block, canonical_point, orb_for,
+    aspect_label,
 )
 from astro_mcp.config import get_config
 from astro_mcp.schemas import get_coordinates_for_params
@@ -157,8 +158,9 @@ COMPACT_BASE_FIELDS = ["start", "end", "from_object", "to_object", "type", "orb"
 NATAL_FIELDS = COMPACT_BASE_FIELDS + ["from_house", "to_house", "from_retrograde"]
 GENERAL_FIELDS = COMPACT_BASE_FIELDS + ["to_position", "from_retrograde", "to_retrograde"]
 SPAN_FIELDS_NOTE = (
-    "Spans are positional arrays in span_fields order. A sign is the last word of a *_position; "
-    "in natal mode the natal end of each span is natal.positions[to_object]."
+    "Spans are positional arrays in span_fields order (the per-span 'label' sentence is left out in this form). "
+    "A sign is the last word of a *_position; in natal mode from_object is the transiting body, to_object the "
+    "natal point, and the natal end of each span is natal.positions[to_object]."
 )
 
 
@@ -595,6 +597,17 @@ def create_transit_chart(
             aspect["to_sign"] = fixed["sign"]
             aspect["to_position"] = fixed["position"]
             aspect["to_house"] = fixed["house"]
+            # One sentence with the roles, the movement and the timing, so
+            # nothing has to be assembled from the fields.
+            label = aspect_label(
+                aspect["from_object"], moving["position"], aspect["type"], aspect["to_object"], fixed["position"],
+                natal_house=fixed["house"],
+            )
+            movement = aspect.get("movement")
+            if movement:
+                label += f", {movement.lower().replace('applicative', 'applying').replace('separative', 'separating')}"
+            label += f", exact {aspect['exact_at']}" if aspect["exact_at"] else ", exact more than 180 days away"
+            aspect["label"] = label
 
         # Assign transit objects to natal chart houses (fixes house assignment bug)
         assigned_houses = assign_natal_houses_to_transit_objects(transit_chart, natal_chart, house_system or 'whole_sign')
@@ -932,6 +945,17 @@ def list_upcoming_transits(
                     from_obj, to_obj, object_ids, natal_positions, natal_houses,
                     cusps, exact, peak_day, tz
                 )
+                # The whole contact as one sentence, roles and moment
+                # included: "exact 2026-10-05 16:59: transiting Sun 12°46'
+                # Libra square natal Jupiter 12°46' Capricorn (natal house
+                # 2)". The positions are those of that moment, which the
+                # sentence says, so a Sun quoted at 12° is not mistaken for
+                # where the Sun is today.
+                when = f"exact {exact}" if exact else f"tightest {peak_day}"
+                label = f"{when}: " + aspect_label(
+                    from_obj, facts["from_position"], aspect_type, to_obj, facts["to_position"],
+                    natal_mode=natal_positions is not None, natal_house=facts.get("to_house"),
+                )
                 transits.append({
                     "start": run[0],
                     "end": run[-1],
@@ -942,6 +966,7 @@ def list_upcoming_transits(
                     # Local moment the aspect is exact; null when the
                     # crossing falls outside the scan window.
                     "exact": exact,
+                    "label": label,
                     # Signs, houses and retrograde state at the tightest
                     # moment, so "Mars square Pluto" arrives as "Mars in Leo
                     # (5th house) square Pluto in Scorpio".
@@ -970,6 +995,11 @@ def list_upcoming_transits(
             "mode": "natal" if natal_mode else "general",
             "total_transits": len(transits),
             "spans_per_object": _spans_per_object(transits, scanned, natal_mode),
+            "positions_note": (
+                "In each span, from_object is the transiting body and to_object the natal point it aspects"
+                if natal_mode else "In each span, both objects are transiting bodies"
+            ) + "; from_position/to_position (and each span's 'label') are the positions at the span's exact "
+                "moment, or its tightest sampled day when 'exact' is null -- not where the bodies are today.",
             "transits": transits,
         }
         if excluded_fast:
@@ -1011,6 +1041,22 @@ def list_upcoming_transits(
         # (~25KB), so oversized results are condensed in two tiers. Lossless
         # compaction comes first: dropping real aspects to save bytes that a
         # cheaper encoding would have saved anyway is a bad trade.
+        if len(payload) > _MAX_RESPONSE_CHARS:
+            # Tier 0: drop the per-span 'label' sentences first. They repeat
+            # what the fields say (roles, positions, moment) in prose, so
+            # losing them costs nothing the legend can't explain -- and it
+            # keeps a scan that fit before labels existed in the readable
+            # named-object form.
+            for t in transits:
+                t.pop("label", None)
+            result["positions_note"] += (
+                " (Per-span 'label' sentences were left out to fit the response budget: "
+                "from_object is the transiting body, to_object the natal point.)"
+                if natal_mode else
+                " (Per-span 'label' sentences were left out to fit the response budget.)"
+            )
+            payload = json.dumps(result, separators=(",", ":"), ensure_ascii=False)
+
         if len(payload) > _MAX_RESPONSE_CHARS:
             # Tier 1: re-encode spans as positional arrays (much smaller than
             # repeated object keys), documented by 'span_fields'. No data is
