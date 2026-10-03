@@ -39,3 +39,6 @@ htmlcov/
 
 # Generated fixtures (optional - uncomment if you don't want to commit them)
 # tests/fixtures/*.json
+
+# stray lock from a one-off uv run; the project installs with pip into .venv
+uv.lock
