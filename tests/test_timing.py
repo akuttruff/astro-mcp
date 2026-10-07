@@ -174,10 +174,12 @@ class TestVoidOfCourse:
         assert r["error"] == "Range too long"
 
 
-# Published 2026 eclipses: greatest eclipse (UTC) and zodiac degree.
+# Published 2026 eclipses: greatest eclipse (UTC) and zodiac degree. Degrees
+# are rounded to the minute, as every tool prints them (the lunar eclipse of
+# March 3 is 12°51'40", which truncation once showed as 12°51').
 ECLIPSES_2026 = [
     ("annular solar eclipse", "2026-02-17 12:12", "28°50' Aquarius"),
-    ("total lunar eclipse", "2026-03-03 11:34", "12°51' Virgo"),
+    ("total lunar eclipse", "2026-03-03 11:34", "12°52' Virgo"),
     ("total solar eclipse", "2026-08-12 17:46", "20°02' Leo"),
     ("partial lunar eclipse", "2026-08-28 04:13", "4°51' Pisces"),
 ]

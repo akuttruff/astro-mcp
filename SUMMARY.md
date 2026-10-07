@@ -63,7 +63,7 @@ astro-mcp/
 ├── src/astro_mcp/
 │   ├── __init__.py
 │   ├── server.py              # MCPServer v2 setup, main()
-│   ├── config.py              # Server config, 13 house systems
+│   ├── config.py              # Server config (whole sign houses)
 │   ├── schemas.py             # Pydantic models for all tools (with geocoding)
 │   ├── utils.py               # JSON serialization, validation, geocoding helper
 │   ├── geocode.py             # Geocoding utilities (city/state/country → coords)
@@ -126,13 +126,13 @@ astro-mcp/
 | Server setup with MCPServer v2 | ✓ |
 | 7 MCP tools registered | ✓ |
 | Whole Sign houses (default) | ✓ |
-| All 13 house systems supported | ✓ |
+| Whole sign houses (other systems removed: transit placement was only right for whole sign) | ✓ |
 | JSON serialization via immanuel.ToJSON | ✓ |
 | Error handling with structured responses | ✓ |
-| Validation (date, coordinates, house system) | ✓ |
+| Validation (date, coordinates) | ✓ |
 | Geocoding (city/state/country → lat/lon) | ✓ |
 | Chart generation (natal, solar return, progressed, transit, synastry) | ✓ |
-| Reference tools (list_house_systems, list_chart_objects) | ✓ |
+| Reference tool (list_chart_objects) | ✓ |
 | Test fixtures generated | ✓ |
 | **Comprehensive natal chart tests (29 tests)** | **✓** |
 | **Detailed aspect exposure (type, orb, condition)** | **✓** |

@@ -28,7 +28,7 @@ def sign_of(chart, name):
 def natal_sign_of(name):
     from immanuel import charts
     subject = charts.Subject(date_time="1984-05-10 20:44", latitude=BIRTH["latitude"], longitude=BIRTH["longitude"])
-    return sign_of(charts.Natal(subject, config=get_config(None)), name)
+    return sign_of(charts.Natal(subject, config=get_config()), name)
 
 
 @pytest.fixture(scope="module")
@@ -50,7 +50,7 @@ def test_mars_square_natal_pluto_reads_as_leo_and_scorpio():
 
 
 def test_the_transiting_sign_matches_a_chart_drawn_at_the_exact_moment(week):
-    config = get_config(None)
+    config = get_config()
     checked = 0
     for r in week:
         if not r["exact"] or r["from_object"] == "Moon":
@@ -68,7 +68,7 @@ def test_the_natal_sign_matches_the_natal_chart(week):
 
 def test_without_birth_data_both_signs_are_transiting_positions():
     data = json.loads(list_upcoming_transits(start_date="2026-09-25", end_date="2026-10-25", object_filter="Sun,Mars,Venus"))
-    config = get_config(None)
+    config = get_config()
     checked = 0
     for r in rows(data):
         if not r["exact"]:
@@ -82,9 +82,15 @@ def test_without_birth_data_both_signs_are_transiting_positions():
 # -- houses and retrograde --------------------------------------------------
 
 def natal_chart(house_system=None):
+    """The server's chart (whole sign), or one in another system straight from immanuel:
+    _house_of is written for any system's cusps, and is still checked against them."""
     from immanuel import charts
+    from immanuel.const import chart
     subject = charts.Subject(date_time="1984-05-10 20:44", latitude=BIRTH["latitude"], longitude=BIRTH["longitude"])
-    return charts.Natal(subject, config=get_config(house_system))
+    config = get_config()
+    if house_system:
+        config.house_system = getattr(chart, house_system.upper())
+    return charts.Natal(subject, config=config)
 
 
 def test_natal_mode_spans_carry_houses_and_retrograde(week):
@@ -104,20 +110,20 @@ def test_the_natal_house_is_the_one_immanuel_gives_that_natal_object(week):
 def test_the_transiting_house_matches_immanuels_own_assignment(week):
     from astro_mcp.utils import assign_natal_houses_to_transit_objects
     natal = natal_chart()
-    config = get_config(None)
+    config = get_config()
     checked = 0
     for r in week:
         if not r["exact"] or r["from_object"] == "Moon":
             continue
         chart = _transits_for_date(r["exact"], BIRTH["latitude"], BIRTH["longitude"], None, config)
-        expected = assign_natal_houses_to_transit_objects(chart, natal, "whole_sign")[r["from_object"]]
+        expected = assign_natal_houses_to_transit_objects(chart, natal)[r["from_object"]]
         assert r["from_house"] == expected, r
         checked += 1
     assert checked
 
 
 def test_retrograde_matches_immanuels_movement_at_the_exact_moment(week):
-    config = get_config(None)
+    config = get_config()
     seen = set()
     for r in week:
         if not r["exact"] or r["from_object"] == "Moon":

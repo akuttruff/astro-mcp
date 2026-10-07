@@ -40,7 +40,7 @@ def fixture_data_transit():
             "longitude": -118.40,
         }
 
-        config = get_config("whole_sign")
+        config = get_config()
 
         native = charts.Subject(
             date_time=reference["date_time"],
@@ -66,8 +66,7 @@ def fixture_data_transit():
                 transit_chart,
                 chart_type="transit",
                 date_time="2025-06-15 14:30",
-                house_system="whole_sign",
-                house_overrides=assign_natal_houses_to_transit_objects(transit_chart, natal_chart, "whole_sign"),
+                house_overrides=assign_natal_houses_to_transit_objects(transit_chart, natal_chart),
                 houses_chart=natal_chart,
                 aspects=aspects_list,
             ))
@@ -215,22 +214,6 @@ class TestTransitChartValidation:
         
         assert "error" in data
 
-    def test_unknown_house_system(self, reference_a):
-        """Test that unknown house system returns error."""
-        from astro_mcp.tools.transit import create_transit_chart
-        
-        result = create_transit_chart(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            transit_date_time="2025-06-15 14:30",
-            house_system="invalid_system"
-        )
-        
-        data = json.loads(result)
-        
-        assert "error" in data
-
 
 class TestTransitChartHouseSystems:
     """Test different house systems for transit charts."""
@@ -243,8 +226,7 @@ class TestTransitChartHouseSystems:
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
-            transit_date_time="2025-06-15 14:30",
-            house_system="whole_sign"
+            transit_date_time="2025-06-15 14:30"
         )
         
         data = json.loads(result)
@@ -253,41 +235,6 @@ class TestTransitChartHouseSystems:
         for house_key, house in data.get("houses", {}).items():
             longitude_value = house["cusp"]
             assert abs(longitude_value % 30) < 0.01, f"House {house_key} not at sign start: {longitude_value}"
-
-    def test_placidus_houses_differ_from_whole_sign(self, reference_a):
-        """Test that Placidus houses differ from Whole Sign."""
-        from astro_mcp.tools.transit import create_transit_chart
-        
-        # Get Whole Sign result
-        result_whole = create_transit_chart(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            transit_date_time="2025-06-15 14:30",
-            house_system="whole_sign"
-        )
-        
-        # Get Placidus result
-        result_placidus = create_transit_chart(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            transit_date_time="2025-06-15 14:30",
-            house_system="placidus"
-        )
-        
-        data_whole = json.loads(result_whole)
-        data_placidus = json.loads(result_placidus)
-        
-        # House cusps should differ between systems
-        whole_house_keys = list(data_whole["houses"].keys())
-        placidus_house_keys = list(data_placidus["houses"].keys())
-        
-        whole_cusp1 = data_whole["houses"][whole_house_keys[0]]["cusp"]
-        placidus_cusp1 = data_placidus["houses"][placidus_house_keys[0]]["cusp"]
-        
-        # They should be different (within tolerance for rounding)
-        assert abs(whole_cusp1 - placidus_cusp1) > 0.5, "Placidus and Whole Sign should differ"
 
 
 class TestTransitChartObjects:
@@ -524,12 +471,9 @@ class TestTransitChartFiltering:
             assert aspect["type"] == "Trine", f"Expected Trine, got {aspect['type']}"
             assert aspect["orb"] <= 1.5, f"Expected orb <= 1.5, got {aspect['orb']}"
 
-    def test_filter_no_matches(self, reference_a):
-        """Test that filtering returns empty array when no matches.
-
-        'Quincunx' is never emitted by the transit-to-natal aspect
-        calculator, so the result is deterministically empty.
-        """
+    def test_filter_unknown_aspect_is_an_error(self, reference_a):
+        """An aspect type the scan never reports is refused outright, with the
+        accepted names: an empty aspect list would read as "nothing in orb"."""
         from astro_mcp.tools.transit import create_transit_chart
 
         result = create_transit_chart(
@@ -542,7 +486,8 @@ class TestTransitChartFiltering:
 
         data = json.loads(result)
 
-        assert data["aspects"] == []
+        assert data["error"] == "Invalid aspect_type"
+        assert "Quincunx" in data["detail"] and "Sextile" in data["detail"]
 
     def test_multiple_aspect_types(self, reference_a):
         """Test filtering by multiple aspect types."""
@@ -1049,7 +994,7 @@ class TestExactAspectMoments:
         from astro_mcp.tools.transit import _chart_tz, _object_ids
         from astro_mcp.utils import MAJOR_OBJECTS, NATAL_TRANSIT_TARGETS
 
-        config = get_config(None)
+        config = get_config()
         native = charts.Subject(
             date_time=reference_a["date_time"],
             latitude=float(reference_a["latitude"]),
@@ -1206,7 +1151,7 @@ class TestExactAspectMoments:
             end_date="2025-07-15",
         ))
         assert data["mode"] == "general"
-        config = get_config(None)
+        config = get_config()
         checked = 0
         for span in data["transits"]:
             if span["exact"] is None:
@@ -1313,7 +1258,7 @@ class TestExactTransitRegression:
         from astro_mcp.config import get_config
         from astro_mcp.tools.transit import _transits_for_date
 
-        config = get_config(None)
+        config = get_config()
         native = charts.Subject(
             date_time=reference_a["date_time"],
             latitude=float(reference_a["latitude"]),
@@ -1343,7 +1288,7 @@ class TestExactTransitRegression:
         from astro_mcp.tools.transit import _transits_for_date
         from astro_mcp.utils import assign_natal_houses_to_transit_objects
 
-        config = get_config("whole_sign")
+        config = get_config()
         native = charts.Subject(
             date_time=reference_a["date_time"],
             latitude=float(reference_a["latitude"]),
@@ -1358,7 +1303,7 @@ class TestExactTransitRegression:
         # Property check against a real dated transit chart: every object's
         # house must follow the Ascendant-relative formula.
         transit = _transits_for_date("2025-06-15 14:30", reference_a["latitude"], reference_a["longitude"], natal, config)
-        houses = assign_natal_houses_to_transit_objects(transit, natal, "whole_sign")
+        houses = assign_natal_houses_to_transit_objects(transit, natal)
 
         for obj in transit.objects.values():
             sign_index = int(obj.longitude.raw // 30)
@@ -1388,7 +1333,7 @@ class TestExactTransitRegression:
             _StubObject("Venus", 270.0),  # Capricorn
             _StubObject("Sun", 0.0),      # Aries
         ])
-        stub_houses = assign_natal_houses_to_transit_objects(stub, natal, "whole_sign")
+        stub_houses = assign_natal_houses_to_transit_objects(stub, natal)
         assert stub_houses["Mars"] == 1, f"Ascendant sign should be house 1, got {stub_houses['Mars']}"
         assert stub_houses["Venus"] == 2
         assert stub_houses["Sun"] == 5

@@ -9,12 +9,12 @@ An MCP (Model Context Protocol) server that exposes the [immanuel-python](https:
 - **Progressed charts** - Secondary progression using "1 day = 1 year" method
 - **Transit charts** - Track current planetary positions against a natal chart
 - **Synastry/Composite charts** - Analyze relationships between two people
-- **House system support** - 13 house systems including Whole Sign, Placidus, Equal, Koch, Campanus, Regiomontanus, Porphyry, Morinus, Polich Page, Alcabitus, Azimuthal, Meridian, and Vehlow Equal
+- **Whole sign houses** throughout (horary alone uses Regiomontanus, as the tradition does)
 - **Planetary hours** - The day's ruler and its 24 unequal hours from local sunrise and sunset, and the hour in effect now
 - **Void-of-course Moon** - Each period from the Moon's last major aspect in a sign until she changes sign, and whether she is void now (traditional seven planets, or including the outer planets)
 - **Lunations and eclipses** - New and full moons and solar and lunar eclipses in a date range, with exact local times and degrees; optionally the natal house and contacts of each in a birth chart
 - **Horary** - `judge_question` answers a question from the chart of the moment it is asked: significators from the houses (including derived houses), then perfection, prohibition, translation and collection of light, refranation, reception, traditional timing, and the considerations before judgment. `cast_horary_chart` shows the chart itself: Regiomontanus houses, traditional rulers, Lilly's triplicities and Ptolemy's terms, with each planet's essential dignity score and condition
-- **Reference tools** - List available house systems and chart objects
+- **Reference tool** - List the chart objects included
 - **Flexible location input** - Provide birth location as coordinates (lat/lon) OR city/state/country with automatic geocoding
 
 ## Requirements
@@ -69,7 +69,7 @@ python -m astro_mcp.server
 
 You can provide birth location in two ways:
 
-### Option 1: Coordinates (Decimal Degrees or DMS)
+### Option 1: Coordinates (decimal degrees; negative for south and west)
 ```json
 {
   "date_time": "1990-06-15 14:30",
@@ -107,7 +107,6 @@ Both formats work for all chart generation tools.
 
 | Tool | Description |
 |------|-------------|
-| `list_house_systems` | Get available house systems with descriptions |
 | `list_chart_objects` | List celestial objects included in charts |
 
 ## Example Output

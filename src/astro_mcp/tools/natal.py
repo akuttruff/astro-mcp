@@ -4,9 +4,9 @@ from typing import Annotated
 
 from mcp.server.mcpserver import MCPServer
 
-from pydantic import Field, TypeAdapter
-from astro_mcp.schemas import NatalChartParams, get_coordinates_for_params
-from astro_mcp.utils import describe_chart_error, compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from pydantic import Field
+from astro_mcp.schemas import get_coordinates_for_params
+from astro_mcp.utils import describe_chart_error, compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude
 from astro_mcp.config import get_config
 
 
@@ -20,7 +20,6 @@ def _location_note(latitude: float, longitude: float, matched: str | None) -> di
 
 def create_natal_chart(
     date_time: Annotated[str, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'. Local time at the birthplace.")],
-    house_system: str | None = None,
     time_is_dst: bool | None = None,
     timezone_offset: float | None = None,
     latitude: str | float | None = None,
@@ -33,24 +32,23 @@ def create_natal_chart(
 
     Use this tool to generate a complete birth chart for any date and location.
     The output includes all planets (Sun through Pluto), angles (Asc, MC, IC, DSC),
-    lunar nodes, Chiron, and Arabic parts. Also includes house cusps, aspects between
-    planets, and aspect patterns (T-squares, grand trines, etc.).
+    lunar nodes, Chiron, and Arabic parts. Also includes whole-sign house cusps,
+    aspects between planets, and aspect patterns (T-squares, grand trines, etc.).
 
     Args:
         date_time: Birth date and time. 'YYYY-MM-DD HH:MM' or full ISO 8601
             ('YYYY-MM-DDTHH:MM:SS'). Local time at the birthplace.
-        house_system: House system to use. Default: 'whole_sign'. See list_house_systems for options.
         time_is_dst: Set true/false to clarify if the time is Daylight Saving Time.
         timezone_offset: Explicit UTC offset in hours (e.g. -8.0 for PST, -7.0 for PDT).
-        latitude: Latitude (optional if city is provided). Decimal degrees (e.g. '34.05') or DMS (e.g. '34n03'). Negative or 's' for south.
-        longitude: Longitude (optional if city is provided). Decimal degrees (e.g. '-118.24') or DMS (e.g. '118w15'). Negative or 'w' for west.
+        latitude: Latitude (optional if city is provided). Decimal degrees (e.g. 34.05); negative for south.
+        longitude: Longitude (optional if city is provided). Decimal degrees (e.g. -118.24); negative for west.
         city: City name (optional if coordinates are provided). If provided, will be geocoded to coordinates.
         state: State/province code or name (optional, used with city for geocoding).
         country: Country code or name (optional, used with city for geocoding).
 
     Returns:
         Compact JSON of the natal chart: name-keyed objects (decimal longitude,
-        DMS position, house, planet speed), house cusps, detailed aspects
+        degree-and-minute position, house, planet speed), house cusps, detailed aspects
         (type, orb, condition, movement), aspect patterns, corrected moon
         phase, and diurnal flag. Error JSON if validation fails.
     """
@@ -78,16 +76,11 @@ def create_natal_chart(
     if not valid:
         return error_response("Invalid longitude", error)
 
-    # Validate house system if provided
-    valid, error = validate_house_system(house_system)
-    if not valid:
-        return error_response("Invalid house system", error)
-
     try:
         from immanuel import charts
 
         # Build config
-        config = get_config(house_system)
+        config = get_config()
 
         # Create subject (birth data). When timezone_offset/time_is_dst are
         # not provided, immanuel geolocates the timezone from the coordinates.
@@ -109,7 +102,7 @@ def create_natal_chart(
             natal_chart,
             chart_type="natal",
             date_time=date_time.replace("T", " "),
-            house_system=house_system or "whole_sign",
+            house_system="whole_sign",
             aspects=aspects_list,
             extra=_location_note(lat_val, lon_val, matched),
         )
@@ -135,9 +128,9 @@ def register(mcp: MCPServer):
             "Generate a full natal chart with planets, houses, aspects, and patterns. "
             "Use this tool to generate a complete birth chart for any date and location. "
             "The output includes all planets (Sun through Pluto), angles (Asc, MC, IC, Desc), "
-            "lunar nodes, Chiron, and Arabic parts. Also includes house cusps, detailed aspects "
+            "lunar nodes, Chiron, and Arabic parts. Also includes whole-sign house cusps, detailed aspects "
             "with type (conjunction, opposition, square, trine, sextile), orb values, and "
             "aspect patterns (T-squares, grand trines, etc.). "
-            "You can provide either (latitude AND longitude) OR (city, state, country). "
+            "You can provide either (latitude AND longitude, in decimal degrees) OR (city, state, country). "
         )
     )

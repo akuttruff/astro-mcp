@@ -347,84 +347,63 @@ def validate_date_string(date_str: str) -> tuple[bool, str]:
         return False, f"Invalid date: got {date_str!r} ({e})"
 
 
+# Coordinates are decimal degrees only. A DMS form ("34n03") was advertised
+# once but never actually accepted -- the resolver converted with float()
+# before any validator ran -- so the claim was dropped rather than the
+# format added: the model is told what works.
+COORDINATE_FORMAT = "decimal degrees, e.g. '34.05' (south) or '-118.24' (west); minutes as a decimal fraction, not '34n03'"
+
+
 def validate_latitude(latitude_str: str) -> tuple[bool, str]:
-    """Validate latitude string.
+    """Validate a latitude: decimal degrees within -90..90.
 
     Returns:
         Tuple of (is_valid, error_message if invalid)
     """
-    import re
-
-    # Try decimal degrees
     try:
         lat = float(latitude_str)
-        if -90 <= lat <= 90:
-            return True, ""
-        return False, f"Latitude must be between -90 and 90. Got: {latitude_str}"
-    except ValueError:
-        pass
-
-    # Try DMS format (e.g., 34n03, 34N03, 34°N)
-    dms_pattern = r"^([+-]?\d+(?:\.\d+)?)\s*([nNsS])$"
-    match = re.match(dms_pattern, latitude_str.strip())
-    if match:
-        degrees = float(match.group(1))
-        direction = match.group(2).upper()
-        if direction in ("S", "N"):
-            lat = degrees if direction == "N" else -degrees
-            if -90 <= lat <= 90:
-                return True, ""
-
-    return False, f"Invalid latitude format. Use decimal degrees (e.g., '34.05') or DMS (e.g., '34n03')."
+    except (TypeError, ValueError):
+        return False, f"Invalid latitude: got {latitude_str!r}. Use {COORDINATE_FORMAT}."
+    if -90 <= lat <= 90:
+        return True, ""
+    return False, f"Latitude must be between -90 and 90. Got: {latitude_str}"
 
 
 def validate_longitude(longitude_str: str) -> tuple[bool, str]:
-    """Validate longitude string.
+    """Validate a longitude: decimal degrees within -180..180.
 
     Returns:
         Tuple of (is_valid, error_message if invalid)
     """
-    import re
-
-    # Try decimal degrees
     try:
         lon = float(longitude_str)
-        if -180 <= lon <= 180:
-            return True, ""
-        return False, f"Longitude must be between -180 and 180. Got: {longitude_str}"
-    except ValueError:
-        pass
-
-    # Try DMS format (e.g., 118w15, 118W15, 118°W)
-    dms_pattern = r"^([+-]?\d+(?:\.\d+)?)\s*([eEwW])$"
-    match = re.match(dms_pattern, longitude_str.strip())
-    if match:
-        degrees = float(match.group(1))
-        direction = match.group(2).upper()
-        if direction in ("W", "E"):
-            lon = degrees if direction == "E" else -degrees
-            if -180 <= lon <= 180:
-                return True, ""
-
-    return False, f"Invalid longitude format. Use decimal degrees (e.g., '-118.24') or DMS (e.g., '118w15')."
-
-
-def validate_house_system(house_system: str | None) -> tuple[bool, str]:
-    """Validate house system string.
-
-    Returns:
-        Tuple of (is_valid, error_message if invalid)
-    """
-    from astro_mcp.config import HOUSE_SYSTEM_MAP
-
-    if house_system is None:
+    except (TypeError, ValueError):
+        return False, f"Invalid longitude: got {longitude_str!r}. Use {COORDINATE_FORMAT}."
+    if -180 <= lon <= 180:
         return True, ""
+    return False, f"Longitude must be between -180 and 180. Got: {longitude_str}"
 
-    if house_system not in HOUSE_SYSTEM_MAP:
-        valid = ", ".join(sorted(HOUSE_SYSTEM_MAP.keys()))
-        return False, f"Unknown house system: {house_system}. Valid options: {valid}"
 
-    return True, ""
+def parse_names(raw: str | None, allowed: list[str], what: str) -> tuple[list[str] | None, str | None]:
+    """A comma-separated list of names as the caller typed them -- any case,
+    stray spaces -- matched to the chart's own spellings.
+
+    Returns (names, None), or (None, error) naming the first unknown one and
+    the accepted list. None in, None out: an absent filter means no filter.
+    A misspelt or lower-case name used to match nothing and return an empty
+    result that read as "no aspects", which is worse than an error.
+    """
+    if raw is None or not str(raw).strip():
+        return None, None
+    lookup = {name.lower(): name for name in allowed}
+    found: list[str] = []
+    for part in str(raw).split(","):
+        name = lookup.get(part.strip().lower())
+        if name is None:
+            return None, f"Unrecognized {what}: {part.strip()!r}. Accepted: {', '.join(allowed)}"
+        if name not in found:
+            found.append(name)
+    return found, None
 
 
 def geocode_location(
@@ -597,6 +576,11 @@ def extract_aspect_details(chart: Any) -> list[dict]:
 # and parts are excluded — including them in transit scans balloons output
 # with location-specific noise (transit IC conjunct natal MC, etc.).
 MAJOR_OBJECTS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron']
+
+# The same bodies, fastest first by mean motion. In a scan without a birth
+# chart both ends of a pair move, and the faster one is what makes the
+# contact come and go -- so it is named first, as the "transiting" end.
+SPEED_ORDER = ['Moon', 'Mercury', 'Venus', 'Sun', 'Mars', 'Jupiter', 'Saturn', 'Chiron', 'Uranus', 'Neptune', 'Pluto']
 
 # Natal points a transit can be reported against.
 #
@@ -1011,48 +995,25 @@ def filter_aspects(aspects: list[dict],
     return filtered
 
 
-def assign_natal_houses_to_transit_objects(transit_chart: Any, natal_chart: Any, house_system: str) -> dict:
-    """Assign transit objects to houses based on natal chart's house cusps.
-    
-    For transit charts, we want to know which houses the transiting planets fall into
-    relative to the natal chart's house system, not the transit chart's houses.
-    
-    Args:
-        transit_chart: An immanuel Transit chart object
-        natal_chart: The natal chart (source of house cusps)
-        house_system: The house system being used
-        
+def assign_natal_houses_to_transit_objects(transit_chart: Any, natal_chart: Any) -> dict:
+    """The natal house each transiting object falls in.
+
+    A transit chart's own houses belong to the transit moment; a reading
+    wants the transiting planets placed in the *natal* chart's houses. Whole
+    sign: the Ascendant's sign is house 1, and each sign is a house.
+
     Returns:
         Dict mapping object names to their natal house numbers
     """
-    # Get natal house cusps (longitude of each house cusp)
-    natal_house_longitudes = {}
-    for house in natal_chart.houses.values():
-        natal_house_longitudes[house.number] = house.longitude.degrees
-    
-    # For Whole Sign houses, the sign of the Ascendant is house 1. Determine
-    # which sign each transit object is in and number the houses relative to
-    # the Ascendant's sign.
-    if house_system == 'whole_sign':
-        asc = next((o for o in natal_chart.objects.values() if o.name == 'Asc'), None)
-        if asc is None:
-            return {}
-        asc_sign_index = int((asc.longitude.raw % 360) // 30)  # 0 = Aries, 11 = Pisces
+    asc = next((o for o in natal_chart.objects.values() if o.name == 'Asc'), None)
+    if asc is None:
+        return {}
+    asc_sign_index = int((asc.longitude.raw % 360) // 30)  # 0 = Aries, 11 = Pisces
 
-        assigned_houses = {}
-        for obj in transit_chart.objects.values():
-            if hasattr(obj, 'longitude') and hasattr(obj, 'sign'):
-                longitude = obj.longitude.raw % 360
-                sign_index = int(longitude // 30)  # Each sign is 30 degrees
-                assigned_houses[obj.name] = (sign_index - asc_sign_index) % 12 + 1
-
-        return assigned_houses
-    
-    # For other house systems, use the transit chart's house assignments
-    # (This is a limitation - proper house cusp calculation would be needed)
     assigned_houses = {}
     for obj in transit_chart.objects.values():
-        if hasattr(obj, 'house') and obj.house:
-            assigned_houses[obj.name] = obj.house.number
-    
+        if hasattr(obj, 'longitude') and hasattr(obj, 'sign'):
+            longitude = obj.longitude.raw % 360
+            sign_index = int(longitude // 30)  # Each sign is 30 degrees
+            assigned_houses[obj.name] = (sign_index - asc_sign_index) % 12 + 1
     return assigned_houses

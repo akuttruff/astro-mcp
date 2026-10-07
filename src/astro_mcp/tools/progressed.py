@@ -5,10 +5,9 @@ from typing import Annotated
 from mcp.server.mcpserver import MCPServer
 from pydantic import Field
 
-from astro_mcp.utils import describe_chart_error, compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude, validate_house_system
+from astro_mcp.utils import describe_chart_error, compact_chart_json, error_response, extract_aspect_details, validate_date_string, validate_latitude, validate_longitude
 from astro_mcp.config import get_config
 from astro_mcp.schemas import get_coordinates_for_params
-from astro_mcp.tools.natal import _location_note
 
 
 def create_progressed_chart(
@@ -16,7 +15,6 @@ def create_progressed_chart(
     target_date: Annotated[str, Field(description="Date to progress to, in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional).")],
     latitude: str | float | None = None,
     longitude: str | float | None = None,
-    house_system: str | None = None,
     city: Annotated[str | None, Field(description="City name, geocoded to coordinates. Use instead of latitude/longitude.")] = None,
     state: Annotated[str | None, Field(description="State or province, to disambiguate the city.")] = None,
     country: Annotated[str | None, Field(description="Country, to disambiguate the city.")] = None,
@@ -29,10 +27,9 @@ def create_progressed_chart(
 
     Args:
         date_time: Birth date and time in format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'. Local time at the birthplace.
-        latitude: Latitude. Decimal degrees (e.g. '34.05') or DMS (e.g. '34n03'). Negative or 's' for south.
-        longitude: Longitude. Decimal degrees (e.g. '-118.24') or DMS (e.g. '118w15'). Negative or 'w' for west.
+        latitude: Latitude in decimal degrees (e.g. 34.05); negative for south.
+        longitude: Longitude in decimal degrees (e.g. -118.24); negative for west.
         target_date: The date to progress to, in format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'.
-        house_system: House system to use. Default: 'whole_sign'. See list_house_systems for options.
 
     Returns:
         JSON string of the progressed chart, or error message if validation fails
@@ -70,16 +67,11 @@ def create_progressed_chart(
     if not valid:
         return error_response("Invalid longitude", error)
 
-    # Validate house system if provided
-    valid, error = validate_house_system(house_system)
-    if not valid:
-        return error_response("Invalid house system", error)
-
     try:
         from immanuel import charts
 
         # Build config
-        config = get_config(house_system)
+        config = get_config()
 
         # Create subject (birth data)
         native = charts.Subject(
@@ -117,7 +109,7 @@ def create_progressed_chart(
             # The moment this chart is actually cast for. Naming the birth
             # time here made a progressed chart look like a natal one.
             date_time=progressed_moment,
-            house_system=house_system or "whole_sign",
+            house_system="whole_sign",
             aspects=aspects_list,
             extra={
                 "birth_date_time": date_time.replace("T", " "),

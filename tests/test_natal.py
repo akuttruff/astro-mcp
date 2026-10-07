@@ -125,14 +125,6 @@ class TestNatalChartValidation:
         assert valid is False
         assert "Longitude" in error
 
-    def test_unknown_house_system(self):
-        """Test that unknown house system returns error with valid options."""
-        from astro_mcp.utils import validate_house_system
-        
-        valid, error = validate_house_system("invalid_system")
-        assert valid is False
-        assert "Unknown" in error or "Valid options" in error
-
 
 class TestNatalChartHouseSystems:
     """Test different house systems."""
@@ -156,33 +148,6 @@ class TestNatalChartHouseSystems:
         for house in natal.houses.values():
             longitude_value = house.longitude.degrees
             assert abs(longitude_value % 30) < 0.01, f"House not at sign start: {longitude_value}"
-
-    def test_placidus_houses_differ_from_whole_sign(self, reference_a):
-        """Test that Placidus houses differ from Whole Sign."""
-        from immanuel import charts
-        
-        native = charts.Subject(
-            date_time=reference_a["date_time"].replace("T", " "),
-            latitude=float(reference_a["latitude"]),
-            longitude=float(reference_a["longitude"]),
-        )
-        
-        # Whole Sign config
-        config_whole = charts.Config()
-        config_whole.house_system = charts.chart.WHOLE_SIGN
-        natal_whole = charts.Natal(native, config=config_whole)
-        
-        # Placidus config
-        config_placidus = charts.Config()
-        config_placidus.house_system = charts.chart.PLACIDUS
-        natal_placidus = charts.Natal(native, config=config_placidus)
-        
-        # House cusps should differ between systems
-        whole_cusp1 = list(natal_whole.houses.values())[0].longitude.degrees
-        placidus_cusp1 = list(natal_placidus.houses.values())[0].longitude.degrees
-        
-        # They should be different (within tolerance for rounding)
-        assert abs(whole_cusp1 - placidus_cusp1) > 0.5, "Placidus and Whole Sign should differ"
 
 
 class TestNatalChartObjects:

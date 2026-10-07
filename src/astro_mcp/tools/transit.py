@@ -8,9 +8,9 @@ from zoneinfo import ZoneInfo
 from pydantic import Field
 
 from astro_mcp.utils import (
-    describe_chart_error, NATAL_TRANSIT_TARGETS, SIGNS, compact_chart_json, error_response,
+    describe_chart_error, NATAL_TRANSIT_TARGETS, SIGNS, SPEED_ORDER, compact_chart_json, error_response,
     calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, MAJOR_ASPECTS, filter_aspects,
-    validate_date_string, validate_latitude, validate_longitude, validate_house_system,
+    validate_date_string, validate_latitude, validate_longitude, parse_names,
     assign_natal_houses_to_transit_objects, sign_position, natal_positions_block, canonical_point, orb_for,
     aspect_label,
 )
@@ -109,7 +109,7 @@ FAST_BODY_HORIZON_DAYS = 10
 
 
 def _sample_fast_body(samples: dict, name: str, step_hours: int,
-                      natal_positions: dict, ids: dict[str, int],
+                      targets: dict | list[str], ids: dict[str, int],
                       start: date, end: date, tz,
                       aspect_types, max_orb) -> None:
     """Add sub-daily samples for a fast body into the daily sample map.
@@ -117,6 +117,13 @@ def _sample_fast_body(samples: dict, name: str, step_hours: int,
     Writes into the same {key: {day: orb}} structure the daily scan builds,
     so span merging and exactness refinement are unchanged -- this only
     stops fast contacts being missed between midnights.
+
+    `targets` is either the natal positions (a dict: fixed points, the key
+    is (fast body, natal point, aspect)) or, in a scan without a birth
+    chart, the names of the other transiting bodies, read from the
+    ephemeris at each moment. Those pairs are keyed faster body first, as
+    the daily scan keys them (see SPEED_ORDER), so the two sets of samples
+    merge into one span.
     """
     from immanuel.tools import ephemeris
     from astro_mcp.utils import _aspects_between
@@ -127,21 +134,32 @@ def _sample_fast_body(samples: dict, name: str, step_hours: int,
 
     base = datetime(start.year, start.month, start.day, tzinfo=tz)
     total_hours = ((end - start).days + 1) * 24
+    moving = None if isinstance(targets, dict) else [t for t in targets if t != name and t in ids]
 
     for hour in range(0, total_hours, step_hours):
         moment = base + timedelta(hours=hour)
-        longitude = ephemeris.get_planet(object_id, _jd_of(moment))["lon"] % 360
+        jd = _jd_of(moment)
+        longitude = ephemeris.get_planet(object_id, jd)["lon"] % 360
         day_iso = moment.date().isoformat()
 
-        for natal_name, natal_longitude in natal_positions.items():
+        if moving is None:
+            others = list(targets.items())
+        else:
+            others = [(other, ephemeris.get_planet(ids[other], jd)["lon"] % 360) for other in moving]
+
+        for other, other_longitude in others:
+            if moving is None or SPEED_ORDER.index(name) < SPEED_ORDER.index(other):
+                key_pair = (name, other)
+            else:
+                key_pair = (other, name)
             for aspect_name, orb in _aspects_between(
-                longitude, natal_longitude, name, natal_name
+                longitude, other_longitude, name, other
             ):
                 if aspect_types and aspect_name not in aspect_types:
                     continue
                 if max_orb is not None and orb > max_orb:
                     continue
-                by_day = samples.setdefault((name, natal_name, aspect_name), {})
+                by_day = samples.setdefault((*key_pair, aspect_name), {})
                 previous = by_day.get(day_iso)
                 by_day[day_iso] = orb if previous is None else min(previous, orb)
 
@@ -421,10 +439,9 @@ def create_transit_chart(
     latitude: str | float | None = None,
     longitude: str | float | None = None,
     transit_date_time: Annotated[str | None, Field(description="Transit date and time in ISO 8601: 'YYYY-MM-DD HH:MM'. Omit for 'now'.")] = None,
-    house_system: str | None = None,
-    aspect_type: str | None = None,
+    aspect_type: Annotated[str | None, Field(description="Keep only these aspect types, comma-separated, any case: Conjunction, Opposition, Square, Trine, Sextile.")] = None,
     max_orb: float | None = None,
-    object_filter: str | None = None,
+    object_filter: Annotated[str | None, Field(description="Keep only these transiting bodies, comma-separated, any case: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron.")] = None,
     city: Annotated[str | None, Field(description="Birth city, geocoded to coordinates. Use instead of latitude/longitude.")] = None,
     state: Annotated[str | None, Field(description="State or province, to disambiguate the city.")] = None,
     country: Annotated[str | None, Field(description="Country, to disambiguate the city.")] = None,
@@ -445,7 +462,7 @@ def create_transit_chart(
     aspects from the ephemeris over a date range.
 
     The output includes:
-    - Transiting planets (decimal + DMS position, natal house)
+    - Transiting planets (decimal + degree-and-minute position, natal house)
     - The natal chart's house cusps
     - Transit-to-natal aspects (type, orb, exact_at: local moment the aspect
       is exact, null when more than 180 days from the snapshot), filtered by
@@ -453,13 +470,12 @@ def create_transit_chart(
 
     Args:
         date_time: Birth date and time of the natal chart being transited. Format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'.
-        latitude: Latitude of the natal chart location. Decimal degrees (e.g. '34.05') or DMS.
-        longitude: Longitude of the natal chart location. Decimal degrees (e.g. '-118.24') or DMS.
+        latitude: Latitude of the natal chart location, in decimal degrees (e.g. 34.05); negative for south.
+        longitude: Longitude of the natal chart location, in decimal degrees (e.g. -118.24); negative for west.
         transit_date_time: The date/time of the transit. Format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'. If omitted, uses current time. For lunation work, specify the exact time of a new or full moon.
-        house_system: House system to use. Default: 'whole_sign'. See list_house_systems for options.
-        aspect_type: Filter aspects to specific type(s) (e.g., "Conjunction", "Square"). Multiple types can be comma-separated.
+        aspect_type: Filter aspects to specific type(s) (e.g., "Conjunction", "Square"). Comma-separated, any case.
         max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included (exact/tight aspects are always kept). Default: 1.5
-        object_filter: Filter to specific transiting objects (comma-separated list of planet names).
+        object_filter: Filter to specific transiting objects (comma-separated planet names, any case).
 
     Returns:
         JSON string of the transit chart, or error message if validation fails
@@ -501,11 +517,6 @@ def create_transit_chart(
     if not valid:
         return error_response("Invalid longitude", error)
 
-    # Validate house system if provided
-    valid, error = validate_house_system(house_system)
-    if not valid:
-        return error_response("Invalid house system", error)
-
     # Validate transit date if provided
     if transit_date_time:
         valid, error = validate_date_string(transit_date_time)
@@ -517,14 +528,14 @@ def create_transit_chart(
         # chart location's timezone, not the machine's)
         transit_dt = _local_now_str(latitude, longitude)
 
-    # Parse filter parameters
-    aspect_type_list = None
-    if aspect_type:
-        aspect_type_list = [at.strip() for at in aspect_type.split(",")]
-
-    object_filter_list = None
-    if object_filter:
-        object_filter_list = [obj.strip() for obj in object_filter.split(",")]
+    # Filters, matched to the chart's own spellings whatever case they came in;
+    # an unknown name is an error, not an empty result.
+    aspect_type_list, error = parse_names(aspect_type, list(MAJOR_ASPECTS), "aspect type")
+    if error:
+        return error_response("Invalid aspect_type", error)
+    object_filter_list, error = parse_names(object_filter, MAJOR_OBJECTS, "object")
+    if error:
+        return error_response("Invalid object_filter", error)
 
     # Validate max_orb if provided
     if max_orb is not None:
@@ -541,7 +552,7 @@ def create_transit_chart(
         from immanuel import charts
 
         # Build config
-        config = get_config(house_system)
+        config = get_config()
 
         # Create subject (birth data)
         native = charts.Subject(
@@ -609,8 +620,8 @@ def create_transit_chart(
             label += f", exact {aspect['exact_at']}" if aspect["exact_at"] else ", exact more than 180 days away"
             aspect["label"] = label
 
-        # Assign transit objects to natal chart houses (fixes house assignment bug)
-        assigned_houses = assign_natal_houses_to_transit_objects(transit_chart, natal_chart, house_system or 'whole_sign')
+        # Transiting objects placed in the natal chart's (whole sign) houses.
+        assigned_houses = assign_natal_houses_to_transit_objects(transit_chart, natal_chart)
 
         # Serialize compactly: transiting objects placed in the NATAL chart's
         # houses, with the filtered transit-to-natal aspects as "aspects" and
@@ -621,14 +632,14 @@ def create_transit_chart(
             transit_chart,
             chart_type="transit",
             date_time=transit_dt,
-            house_system=house_system or 'whole_sign',
+            house_system='whole_sign',
             house_overrides=assigned_houses,
             houses_chart=natal_chart,
             aspects=filtered_aspects,
             extra={
                 "natal": {
                     "date_time": date_time.replace("T", " "),
-                    "house_system": house_system or 'whole_sign',
+                    "house_system": 'whole_sign',
                     "positions": natal_block,
                 },
                 "note": (
@@ -661,8 +672,8 @@ def list_upcoming_transits(
     date_time: Annotated[str | None, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional). All-or-nothing with latitude and longitude.")] = None,
     latitude: str | float | None = None,
     longitude: str | float | None = None,
-    aspect_filter: str | None = None,
-    object_filter: Annotated[str | None, Field(description="Comma-separated transiting objects to include, e.g. 'Moon,Mercury' or 'Sun,Mars,Pluto'. Valid names: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron. If omitted, all objects are included; oversized results auto-omit Moon and Mercury (see the 'omitted' field in the response).")] = None,
+    aspect_filter: Annotated[str | None, Field(description="Keep only these aspect types, comma-separated, any case: Conjunction, Opposition, Square, Trine, Sextile.")] = None,
+    object_filter: Annotated[str | None, Field(description="Comma-separated objects to include, any case, e.g. 'Moon,Mercury' or 'Sun,Mars,Pluto'. Valid names: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron. With a birth chart these are the transiting bodies; without one, a span is kept when either of its bodies is listed. If omitted, all objects are included; oversized results auto-omit Moon and Mercury (see the 'omitted' field in the response).")] = None,
     max_orb: float | None = 1.5,
     city: Annotated[str | None, Field(description="Birth city, geocoded to coordinates. Use instead of latitude/longitude.")] = None,
     state: Annotated[str | None, Field(description="State or province, to disambiguate the city.")] = None,
@@ -701,8 +712,9 @@ def list_upcoming_transits(
             With latitude and longitude, transits are related to this birth chart.
         latitude: Latitude of the natal chart location.
         longitude: Longitude of the natal chart location.
-        aspect_filter: Filter by aspect types (comma-separated, e.g., "Conjunction,Square").
-        object_filter: Filter by transiting objects (comma-separated, e.g., "Moon,Mercury").
+        aspect_filter: Filter by aspect types (comma-separated, any case, e.g., "Conjunction,Square").
+        object_filter: Filter by objects (comma-separated, any case, e.g., "Moon,Mercury"): the transiting
+            bodies with a birth chart; either body of a pair without one.
         max_orb: Maximum orb threshold in degrees. Aspects with orb <= this value are included. Default: 1.5
 
     Returns:
@@ -793,7 +805,7 @@ def list_upcoming_transits(
         from datetime import date
 
         # Build config (house system has no effect on ecliptic aspects)
-        config = get_config(None)
+        config = get_config()
 
         # Natal reference (only when birth data was provided)
         natal_chart = None
@@ -828,27 +840,15 @@ def list_upcoming_transits(
         tz = _chart_tz(lat, lon)
         object_ids = _object_ids(natal_chart) if natal_chart is not None else None
 
-        # Parse aspect filter
-        aspect_types = None
-        if aspect_filter:
-            aspect_types = [at.strip() for at in aspect_filter.split(",")]
-
-        # Parse object filter (which transiting objects to include).
-        # Names are matched case-insensitively against MAJOR_OBJECTS; any
-        # unrecognized name is an error that lists the valid ones.
-        object_names = None
-        if object_filter:
-            lookup = {name.lower(): name for name in MAJOR_OBJECTS}
-            object_names = set()
-            for raw in object_filter.split(","):
-                name = lookup.get(raw.strip().lower())
-                if name is None:
-                    return error_response(
-                        "Invalid object_filter",
-                        f"Unrecognized object: {raw.strip()!r}. "
-                        f"Recognized objects: {', '.join(MAJOR_OBJECTS)}"
-                    )
-                object_names.add(name)
+        # Filters, matched to the chart's own spellings whatever case they
+        # came in; an unknown name is an error that lists the valid ones.
+        aspect_types, error = parse_names(aspect_filter, list(MAJOR_ASPECTS), "aspect type")
+        if error:
+            return error_response("Invalid aspect_filter", error)
+        object_list, error = parse_names(object_filter, MAJOR_OBJECTS, "object")
+        if error:
+            return error_response("Invalid object_filter", error)
+        object_names = set(object_list) if object_list is not None else None
 
         # Scan date range
         start = date.fromisoformat(start_date)
@@ -881,11 +881,15 @@ def list_upcoming_transits(
             if natal_positions is not None:
                 aspects_list = calculate_transit_to_natal_aspects(transit_chart, natal_positions)
             else:
-                transit_positions = {
+                # Fastest body first in each pair (SPEED_ORDER), so from_object
+                # is the one that makes the contact come and go, and the
+                # fast-body pass below keys its samples the same way.
+                by_name = {
                     obj.name: obj.longitude.raw % 360
                     for obj in transit_chart.objects.values()
                     if obj.name in MAJOR_OBJECTS
                 }
+                transit_positions = {name: by_name[name] for name in SPEED_ORDER if name in by_name}
                 aspects_list = calculate_major_aspects(transit_positions)
 
             # Filter by max_orb and aspect types
@@ -908,16 +912,19 @@ def list_upcoming_transits(
 
             current_date += timedelta(days=1)
 
-        # Fast bodies need a finer pass; see FAST_BODIES.
-        if natal_positions is not None and object_ids is not None:
+        # Fast bodies need a finer pass; see FAST_BODIES. In a scan without a
+        # birth chart the targets are the other transiting bodies, read at
+        # each sample moment.
+        if object_ids is not None:
             for fast_name, step_hours in FAST_BODIES.items():
                 if fast_name in excluded_fast:
                     continue
                 if object_names is not None and fast_name not in object_names:
                     continue
                 _sample_fast_body(
-                    samples, fast_name, step_hours, natal_positions, object_ids,
-                    start, end, tz, aspect_types, max_orb,
+                    samples, fast_name, step_hours,
+                    natal_positions if natal_positions is not None else list(MAJOR_OBJECTS),
+                    object_ids, start, end, tz, aspect_types, max_orb,
                 )
 
         # Merge consecutive in-orb days into spans: each aspect is listed
@@ -975,9 +982,13 @@ def list_upcoming_transits(
 
         transits.sort(key=lambda x: (x["start"], x["from_object"], x["to_object"]))
 
-        # Explicit object filter wins over the automatic trimming below
+        # Explicit object filter wins over the automatic trimming below. With a
+        # birth chart it names transiting bodies; without one, either end.
         if object_names is not None:
-            transits = [t for t in transits if t["from_object"] in object_names]
+            if natal_positions is not None:
+                transits = [t for t in transits if t["from_object"] in object_names]
+            else:
+                transits = [t for t in transits if t["from_object"] in object_names or t["to_object"] in object_names]
 
         # Every object the scan actually covered: the per-object counts below
         # list each of these, zero or not.
@@ -1074,9 +1085,8 @@ def list_upcoming_transits(
             # report exactly what went and how to get it back. An explicit
             # object_filter disables this tier.
             # Filtering on from_object is safe in both modes: in natal mode
-            # it is the transiting planet; in general mode the faster object
-            # always sorts first in MAJOR_OBJECTS order, so fast-driven
-            # pairs are caught too.
+            # it is the transiting planet; in general mode the faster body is
+            # always first (SPEED_ORDER), so fast-driven pairs are caught too.
             if len(payload) > _MAX_RESPONSE_CHARS and object_names is None:
                 fast_objects = ("Moon", "Mercury")
                 omitted = {}
@@ -1206,7 +1216,7 @@ def verify_claim(
         from immanuel import charts
         from immanuel.tools import ephemeris
 
-        config = get_config(None)
+        config = get_config()
         native = charts.Subject(
             date_time=date_time.replace("T", " "), latitude=float(latitude), longitude=float(longitude),
         )

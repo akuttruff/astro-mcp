@@ -16,7 +16,6 @@ from astro_mcp.utils import (
     validate_date_string,
     validate_latitude,
     validate_longitude,
-    validate_house_system,
 )
 from astro_mcp.config import get_config
 
@@ -31,7 +30,6 @@ def register(mcp: MCPServer):
         date_time_b: Annotated[str, Field(description="Person B birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'.")],
         latitude_b: str | float,
         longitude_b: str | float,
-        house_system: str | None = None
     ) -> str:
         """Generate a composite chart and cross-chart aspects between two people.
 
@@ -45,12 +43,11 @@ def register(mcp: MCPServer):
 
         Args:
             date_time_a: Person A birth date and time in format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'.
-            latitude_a: Person A latitude. Decimal degrees (e.g. '34.05') or DMS.
-            longitude_a: Person A longitude. Decimal degrees (e.g. '-118.24') or DMS.
+            latitude_a: Person A latitude in decimal degrees (e.g. 34.05); negative for south.
+            longitude_a: Person A longitude in decimal degrees (e.g. -118.24); negative for west.
             date_time_b: Person B birth date and time in format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'.
-            latitude_b: Person B latitude. Decimal degrees (e.g. '34.05') or DMS.
-            longitude_b: Person B longitude. Decimal degrees (e.g. '-118.24') or DMS.
-            house_system: House system to use. Default: 'whole_sign'. See list_house_systems for options.
+            latitude_b: Person B latitude in decimal degrees; negative for south.
+            longitude_b: Person B longitude in decimal degrees; negative for west.
 
         Returns:
             JSON string containing composite chart and cross-aspects, or error message
@@ -88,16 +85,11 @@ def register(mcp: MCPServer):
         if not valid:
             return error_response("Invalid longitude for person B", error)
 
-        # Validate house system if provided
-        valid, error = validate_house_system(house_system)
-        if not valid:
-            return error_response("Invalid house system", error)
-
         try:
             from immanuel import charts
 
             # Build config
-            config = get_config(house_system)
+            config = get_config()
 
             # Create Person A subject and natal chart
             native_a = charts.Subject(
@@ -134,7 +126,7 @@ def register(mcp: MCPServer):
                 # moment; naming person A's birth time here implied it was
                 # cast for that instant.
                 date_time=None,
-                house_system=house_system or "whole_sign",
+                house_system="whole_sign",
                 aspects=extract_aspect_details(composite),
             ))
 
@@ -153,7 +145,7 @@ def register(mcp: MCPServer):
                     "objects": json.loads(compact_chart_json(
                         natal_a, chart_type="natal",
                         date_time=date_time_a.replace("T", " "),
-                        house_system=house_system or "whole_sign",
+                        house_system="whole_sign",
                         aspects=[],
                     ))["objects"],
                 },
@@ -164,7 +156,7 @@ def register(mcp: MCPServer):
                     "objects": json.loads(compact_chart_json(
                         natal_b, chart_type="natal",
                         date_time=date_time_b.replace("T", " "),
-                        house_system=house_system or "whole_sign",
+                        house_system="whole_sign",
                         aspects=[],
                     ))["objects"],
                 },

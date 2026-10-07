@@ -18,7 +18,7 @@ from pydantic import Field
 
 from astro_mcp.config import get_config
 from astro_mcp.schemas import get_coordinates_for_params
-from astro_mcp.utils import error_response, validate_date_string
+from astro_mcp.utils import error_response, sign_position, validate_date_string
 
 SIGNS = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
@@ -72,12 +72,9 @@ def _local(jd: float, tz) -> str:
 
 
 def _position(longitude: float) -> str:
-    """"18°34' Aries" -- degree within the sign, truncated to the minute."""
-    lon = longitude % 360
-    within = lon % 30
-    degrees = int(within)
-    minutes = int((within - degrees) * 60)
-    return f"{degrees}°{minutes:02d}' {SIGNS[int(lon // 30)]}"
+    """"18°34' Aries" -- the same rounding to the minute every other tool uses,
+    so one longitude never prints a minute apart in two places."""
+    return sign_position(longitude)["position"]
 
 
 def _resolve_place(latitude, longitude, city, state, country, required: bool):
@@ -407,12 +404,12 @@ def _house_of(longitude: float, cusps: list[float]) -> int:
     return 12
 
 
-def _natal_frame(date_time: str, lat: float, lon: float, house_system: str | None):
-    """(natal point longitudes, house cusps) of a birth chart, via immanuel."""
+def _natal_frame(date_time: str, lat: float, lon: float):
+    """(natal point longitudes, whole-sign house cusps) of a birth chart, via immanuel."""
     from immanuel import charts
     natal = charts.Natal(
         charts.Subject(date_time=date_time.replace("T", " "), latitude=lat, longitude=lon),
-        config=get_config(house_system),
+        config=get_config(),
     )
     points = {o.name: o.longitude.raw % 360 for o in natal.objects.values() if o.name in NATAL_POINTS}
     cusps = [h.longitude.raw for h in sorted(natal.houses.values(), key=lambda h: h.number)]
@@ -440,7 +437,6 @@ def lunations_and_eclipses(
     start_date: Annotated[str | None, Field(description="First day to cover, 'YYYY-MM-DD'. Default: today.")] = None,
     end_date: Annotated[str | None, Field(description="Last day to cover, 'YYYY-MM-DD'. Default: 6 months after start. At most 2 years.")] = None,
     date_time: Annotated[str | None, Field(description="Optional birth date and time, 'YYYY-MM-DD HH:MM' local. With a birth place, each event gets its natal house and contacts.")] = None,
-    house_system: Annotated[str | None, Field(description="House system for natal houses. Default 'whole_sign'.")] = None,
     latitude: str | float | None = None,
     longitude: str | float | None = None,
     city: Annotated[str | None, Field(description="With date_time: the birthplace. Without: the place whose local time to report in.")] = None,
@@ -484,7 +480,7 @@ def lunations_and_eclipses(
     jd_to = _jd(datetime(last.year, last.month, last.day, tzinfo=tz) + timedelta(days=1))
 
     try:
-        natal = _natal_frame(date_time, lat, lon, house_system) if date_time else None
+        natal = _natal_frame(date_time, lat, lon) if date_time else None
         events: list[tuple[float, str, float]] = []
         for kind, finder, body in (("new moon", transit.next_new_moon, chart.SUN),
                                    ("full moon", transit.next_full_moon, chart.MOON)):
@@ -531,7 +527,7 @@ def lunations_and_eclipses(
         **_place_note(lat, lon, matched, tz),
     }
     if natal:
-        result["house_system"] = house_system or "whole_sign"
+        result["house_system"] = "whole_sign"
     return _dumps(result)
 
 

@@ -181,23 +181,6 @@ class TestSolarReturnValidation:
         assert "error" in data
         assert "range" in data.get("detail", "").lower()
 
-    def test_unknown_house_system(self, reference_a):
-        """Test that unknown house system returns error."""
-        from astro_mcp.tools.solar_return import create_solar_return
-        
-        result = create_solar_return(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            year=2025,
-            house_system="invalid_system"
-        )
-        
-        import json
-        data = json.loads(result)
-        
-        assert "error" in data
-
 
 class TestSolarReturnHouseSystems:
     """Test different house systems for solar return."""
@@ -210,8 +193,7 @@ class TestSolarReturnHouseSystems:
             date_time=reference_a["date_time"],
             latitude=reference_a["latitude"],
             longitude=reference_a["longitude"],
-            year=2025,
-            house_system="whole_sign"
+            year=2025
         )
         
         import json
@@ -221,43 +203,6 @@ class TestSolarReturnHouseSystems:
         for house_key, house in data.get("houses", {}).items():
             longitude_value = house["cusp"]
             assert abs(longitude_value % 30) < 0.01, f"House {house_key} not at sign start: {longitude_value}"
-
-    def test_placidus_houses_differ_from_whole_sign(self, reference_a):
-        """Test that Placidus houses differ from Whole Sign."""
-        from astro_mcp.tools.solar_return import create_solar_return
-        
-        # Get Whole Sign result
-        result_whole = create_solar_return(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            year=2025,
-            house_system="whole_sign"
-        )
-        
-        # Get Placidus result
-        result_placidus = create_solar_return(
-            date_time=reference_a["date_time"],
-            latitude=reference_a["latitude"],
-            longitude=reference_a["longitude"],
-            year=2025,
-            house_system="placidus"
-        )
-        
-        import json
-        data_whole = json.loads(result_whole)
-        data_placidus = json.loads(result_placidus)
-        
-        # House cusps should differ between systems
-        # Use the first house key (numeric ID like "2000001")
-        whole_house_keys = list(data_whole["houses"].keys())
-        placidus_house_keys = list(data_placidus["houses"].keys())
-        
-        whole_cusp1 = data_whole["houses"][whole_house_keys[0]]["cusp"]
-        placidus_cusp1 = data_placidus["houses"][placidus_house_keys[0]]["cusp"]
-        
-        # They should be different (within tolerance for rounding)
-        assert abs(whole_cusp1 - placidus_cusp1) > 0.5, "Placidus and Whole Sign should differ"
 
 
 class TestSolarReturnObjects:

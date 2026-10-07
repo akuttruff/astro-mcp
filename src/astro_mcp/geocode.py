@@ -12,9 +12,13 @@ except ImportError:
     GEOPY_AVAILABLE = False
 
 
-class LocationNotFoundError(Exception):
-    """Raised when a location cannot be found."""
-    pass
+class LocationNotFoundError(RuntimeError):
+    """A place name the geocoder couldn't resolve, or a geocoder that didn't answer.
+
+    A RuntimeError, like the "geopy isn't installed" failure, so every tool's
+    existing "Geocoding failed" handler reports it as a structured error with
+    the message, instead of the exception escaping the tool.
+    """
 
 
 def geocode_location(

@@ -26,7 +26,7 @@ def rows(data):
 def natal_chart():
     from immanuel import charts
     subject = charts.Subject(date_time="1984-05-10 20:44", latitude=BIRTH["latitude"], longitude=BIRTH["longitude"])
-    return charts.Natal(subject, config=get_config(None))
+    return charts.Natal(subject, config=get_config())
 
 
 @pytest.fixture(scope="module")

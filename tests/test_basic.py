@@ -26,10 +26,10 @@ def test_server_has_tools():
 
 def test_config_module():
     """Test config module functions."""
-    from astro_mcp.config import get_config, HOUSE_SYSTEM_MAP
-    
-    assert "whole_sign" in HOUSE_SYSTEM_MAP
-    assert "placidus" in HOUSE_SYSTEM_MAP
+    from immanuel.const import chart
+    from astro_mcp.config import get_config
+
+    assert get_config().house_system == chart.WHOLE_SIGN
 
 
 def test_utils_module():

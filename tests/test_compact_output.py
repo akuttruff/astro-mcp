@@ -18,7 +18,7 @@ BIRTH = dict(date_time="1984-05-10T20:44:00", latitude=37.77, longitude=-122.42)
 
 @pytest.fixture(scope="module")
 def natal():
-    return create_natal_chart(house_system="whole_sign", **BIRTH)
+    return create_natal_chart(**BIRTH)
 
 
 def test_output_is_not_pretty_printed(natal):

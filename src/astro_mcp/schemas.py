@@ -32,8 +32,15 @@ def get_coordinates_for_params(
         RuntimeError: If geocoding fails
     """
     from astro_mcp.geocode import resolve_location
+    from astro_mcp.utils import validate_latitude, validate_longitude
 
     if latitude is not None and longitude is not None:
+        # Checked here, before float(): a coordinate in the wrong form fails
+        # with the format spelled out, not "could not convert string".
+        for check, value in ((validate_latitude, latitude), (validate_longitude, longitude)):
+            valid, error = check(str(value))
+            if not valid:
+                raise ValueError(error)
         return float(latitude), float(longitude), None
     if city is not None:
         return resolve_location(city, state, country)
@@ -45,11 +52,11 @@ class LocationParams(BaseModel):
 
     latitude: Optional[str] = Field(
         default=None,
-        description="Latitude. Decimal degrees (e.g. '34.05') or DMS (e.g. '34n03'). Negative or 's' for south."
+        description="Latitude. Decimal degrees (e.g. '34.05'); negative for south."
     )
     longitude: Optional[str] = Field(
         default=None,
-        description="Longitude. Decimal degrees (e.g. '-118.24') or DMS (e.g., '118w15'). Negative or 'w' for west."
+        description="Longitude. Decimal degrees (e.g. '-118.24'); negative for west."
     )
 
     # Optional location components for geocoding
@@ -87,10 +94,6 @@ class NatalChartParams(BaseModel):
         ...,
         description="Birth date and time in format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'. Local time at the birthplace."
     )
-    house_system: Optional[str] = Field(
-        None,
-        description="House system to use. Default: 'whole_sign'. See list_house_systems for options."
-    )
     time_is_dst: Optional[bool] = Field(
         None,
         description="Set true/false to clarify if the time is Daylight Saving Time."
@@ -103,11 +106,11 @@ class NatalChartParams(BaseModel):
     # Location can be specified either as coordinates OR city/state/country
     latitude: Optional[str] = Field(
         default=None,
-        description="Latitude. Decimal degrees (e.g. '34.05') or DMS (e.g. '34n03'). Negative or 's' for south."
+        description="Latitude. Decimal degrees (e.g. '34.05'); negative for south."
     )
     longitude: Optional[str] = Field(
         default=None,
-        description="Longitude. Decimal degrees (e.g. '-118.24') or DMS (e.g. '118w15'). Negative or 'w' for west."
+        description="Longitude. Decimal degrees (e.g. '-118.24'); negative for west."
     )
 
     # Optional location components for geocoding
@@ -149,18 +152,14 @@ class SolarReturnParams(BaseModel):
         ...,
         description="The year for the solar return (e.g., 2025). Must be between 1200 and 4649."
     )
-    house_system: Optional[str] = Field(
-        None,
-        description="House system to use. Default: 'whole_sign'. See list_house_systems for options."
-    )
 
     latitude: Optional[str] = Field(
         default=None,
-        description="Latitude. Decimal degrees (e.g. '34.05') or DMS (e.g. '34n03'). Negative or 's' for south."
+        description="Latitude. Decimal degrees (e.g. '34.05'); negative for south."
     )
     longitude: Optional[str] = Field(
         default=None,
-        description="Longitude. Decimal degrees (e.g. '-118.24') or DMS (e.g. '118w15'). Negative or 'w' for west."
+        description="Longitude. Decimal degrees (e.g. '-118.24'); negative for west."
     )
 
     city: Optional[str] = Field(
@@ -201,18 +200,14 @@ class ProgressedParams(BaseModel):
         ...,
         description="The date to progress to, in format 'YYYY-MM-DD'."
     )
-    house_system: Optional[str] = Field(
-        None,
-        description="House system to use. Default: 'whole_sign'. See list_house_systems for options."
-    )
 
     latitude: Optional[str] = Field(
         default=None,
-        description="Latitude. Decimal degrees (e.g. '34.05') or DMS (e.g. '34n03'). Negative or 's' for south."
+        description="Latitude. Decimal degrees (e.g. '34.05'); negative for south."
     )
     longitude: Optional[str] = Field(
         default=None,
-        description="Longitude. Decimal degrees (e.g. '-118.24') or DMS (e.g. '118w15'). Negative or 'w' for west."
+        description="Longitude. Decimal degrees (e.g. '-118.24'); negative for west."
     )
 
     city: Optional[str] = Field(
@@ -249,18 +244,14 @@ class TransitParams(BaseModel):
         ...,
         description="Birth date and time of the natal chart being transited. Format 'YYYY-MM-DD HH:MM' or 'YYYY-MM-DDTHH:MM'."
     )
-    house_system: Optional[str] = Field(
-        None,
-        description="House system to use. Default: 'whole_sign'. See list_house_systems for options."
-    )
 
     latitude: Optional[str] = Field(
         default=None,
-        description="Latitude of the natal chart location. Decimal degrees (e.g. '34.05') or DMS."
+        description="Latitude of the natal chart location. Decimal degrees (e.g. '34.05'); negative for south."
     )
     longitude: Optional[str] = Field(
         default=None,
-        description="Longitude of the natal chart location. Decimal degrees (e.g. '-118.24') or DMS."
+        description="Longitude of the natal chart location. Decimal degrees (e.g. '-118.24'); negative for west."
     )
 
     city: Optional[str] = Field(
@@ -306,11 +297,11 @@ class SynastryParams(BaseModel):
 
     latitude_a: Optional[str] = Field(
         default=None,
-        description="Person A latitude. Decimal degrees (e.g. '34.05') or DMS."
+        description="Person A latitude. Decimal degrees (e.g. '34.05'); negative for south."
     )
     longitude_a: Optional[str] = Field(
         default=None,
-        description="Person A longitude. Decimal degrees (e.g. '-118.24') or DMS."
+        description="Person A longitude. Decimal degrees (e.g. '-118.24'); negative for west."
     )
 
     city_a: Optional[str] = Field(
@@ -334,11 +325,11 @@ class SynastryParams(BaseModel):
 
     latitude_b: Optional[str] = Field(
         default=None,
-        description="Person B latitude. Decimal degrees (e.g. '34.05') or DMS."
+        description="Person B latitude. Decimal degrees (e.g. '34.05'); negative for south."
     )
     longitude_b: Optional[str] = Field(
         default=None,
-        description="Person B longitude. Decimal degrees (e.g. '-118.24') or DMS."
+        description="Person B longitude. Decimal degrees (e.g. '-118.24'); negative for west."
     )
 
     city_b: Optional[str] = Field(
@@ -354,10 +345,6 @@ class SynastryParams(BaseModel):
         description="Person B country code or name. Optional."
     )
 
-    house_system: Optional[str] = Field(
-        None,
-        description="House system to use. Default: 'whole_sign'. See list_house_systems for options."
-    )
 
     @model_validator(mode='after')
     def validate_location_inputs(self):

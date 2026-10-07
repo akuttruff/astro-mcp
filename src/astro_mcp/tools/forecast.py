@@ -272,7 +272,7 @@ def _digest(date_time: str, latitude: str, longitude: str, first: date, last: da
     """The shared engine behind both tools; `horizon` is 'month' or 'year'."""
     from immanuel import charts
 
-    config = get_config(None)
+    config = get_config()
     native = charts.Subject(date_time=date_time.replace("T", " "), latitude=float(latitude), longitude=float(longitude))
     natal_chart = charts.Natal(native, config=config)
     natal_positions = {

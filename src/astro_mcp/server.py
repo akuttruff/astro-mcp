@@ -1,9 +1,9 @@
 """MCP server setup, tool registration, and main entry point."""
 
 import json
+
 from mcp.server.mcpserver import MCPServer
 
-from astro_mcp.config import HOUSE_SYSTEMS_INFO
 from astro_mcp.tools import natal, solar_return, progressed, transit, synastry, timing, horary, forecast
 
 # Create MCPServer instance
@@ -33,8 +33,7 @@ mcp = MCPServer(
         "come back?', 'where is my ring?'), answer it with judge_question: pick quesited_house from its house guide; "
         "the time defaults to now, and a place is required. Lead with its summary, cite its testimony and flagged "
         "considerations, and never judge the chart yourself. Use cast_horary_chart only to show the chart itself. "
-        "Horary uses its own traditional settings (Regiomontanus), regardless of the house system used elsewhere. "
-        "Use whole_sign houses (default) unless the user explicitly requests another system. "
+        "Houses are whole sign in every chart; horary alone uses its own traditional settings (Regiomontanus). "
         "Date format: pass all datetimes as ISO 8601 'YYYY-MM-DD HH:MM' (e.g. '1984-05-10 20:44') and date-only "
         "params as 'YYYY-MM-DD'. Convert natural-language dates from the user (e.g. 'May 10, 1984 8:44 PM' -> "
         "'1984-05-10 20:44') before calling tools - free-form date strings are rejected. "
@@ -57,32 +56,6 @@ def register_tools():
 
 def register_reference_tools():
     """Register reference tools that list available options."""
-    
-    def list_house_systems() -> str:
-        """Return a list of all supported house systems with their names and descriptions.
-
-        Use this to help the user choose a house system if they ask for one that's not the default.
-        """
-        import json
-        from astro_mcp.config import HOUSE_SYSTEM_MAP
-
-        systems = []
-        for sys_id, description in HOUSE_SYSTEMS_INFO.items():
-            systems.append({
-                "id": sys_id,
-                "name": sys_id.replace("_", " ").title(),
-                "description": description
-            })
-
-        # Sort alphabetically by id for consistent output
-        systems.sort(key=lambda x: x["id"])
-
-        result = {
-            "default": "whole_sign",
-            "systems": systems
-        }
-
-        return json.dumps(result, indent=2)
 
     def list_chart_objects() -> str:
         """Return the list of celestial objects included in charts by default.
@@ -93,8 +66,6 @@ def register_reference_tools():
         Returns:
             JSON with included_by_default and available_extras lists.
         """
-        import json
-
         result = {
             "included_by_default": [
                 "Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn",
@@ -117,11 +88,9 @@ def register_reference_tools():
         return json.dumps(result, indent=2)
 
 
-    # Register tools with MCPServer. There is no "what time is it" tool any
-    # more: every tool schema costs the model ~500 prompt tokens a turn, and
-    # the client (lm-chat) stamps the date and time on each message, so the
-    # model already knows what "today" is without a round trip.
-    mcp.add_tool(list_house_systems, name="list_house_systems")
+    # Every tool schema costs the model ~500 prompt tokens a turn, so there is
+    # no "what time is it" tool (the client stamps the date on each message)
+    # and no house-system list (houses are always whole sign).
     mcp.add_tool(list_chart_objects, name="list_chart_objects")
 
 
