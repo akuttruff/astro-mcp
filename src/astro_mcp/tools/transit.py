@@ -473,7 +473,7 @@ def create_transit_chart(
     date_time: Annotated[str, Field(description="Birth date and time of the natal chart in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'.")],
     latitude: str | float | None = None,
     longitude: str | float | None = None,
-    transit_date_time: Annotated[str | None, Field(description="Transit date and time in ISO 8601: 'YYYY-MM-DD HH:MM'. Omit for 'now'.")] = None,
+    transit_date_time: Annotated[str | None, Field(description="Transit date and time in ISO 8601: 'YYYY-MM-DD HH:MM'. Omit for 'now' and for today's reading; for another single day use that date at 12:00.")] = None,
     aspect_type: Annotated[str | None, Field(description="Keep only these aspect types, comma-separated, any case: Conjunction, Opposition, Square, Trine, Sextile.")] = None,
     max_orb: float | None = None,
     object_filter: Annotated[str | None, Field(description="Keep only these transiting bodies, comma-separated, any case: Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron.")] = None,
@@ -1361,7 +1361,10 @@ def register(mcp: MCPServer):
         create_transit_chart,
         name="create_transit_chart",
         description=(
-            "Generate a transit chart for ONE specific moment: transiting planet positions (in the natal chart's houses), "
+            "THE tool for a daily reading: 'my forecast / horoscope / transits for today' (omit transit_date_time), "
+            "'tomorrow' or any single named day (transit_date_time = that date at 12:00). Never use forecast_week for "
+            "one day. "
+            "Generates a transit chart for ONE specific moment: transiting planet positions (in the natal chart's houses), "
             "the natal positions they are measured against ('natal.positions', angles included), and the aspects between "
             "them -- each aspect carries both ends as from_position/to_position (e.g. \"Saturn 11°24' Aries square natal "
             "Saturn 12°03' Scorpio\"), so quote those rather than recalling the natal chart. "

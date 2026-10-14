@@ -533,7 +533,8 @@ def register(mcp: MCPServer):
             "A week's forecast for a birth chart, seven days from start_date (today if omitted): the weightiest "
             "transits of the Sun, Mercury, Venus, Mars and the slow planets with exact moments and both positions, "
             "the week's new/full moons and eclipses in the natal houses, and every station and sign ingress -- ranked "
-            "and labelled, ready to quote. Use for 'my forecast for this week / the week ahead / next week'. The Moon "
+            "and labelled, ready to quote. Use for 'my forecast for this week / the week ahead / next week' only -- "
+            "NOT for a single day: for 'today', 'tomorrow' or one named day use create_transit_chart. The Moon "
             "is left out: for its contacts use list_upcoming_transits with object_filter='Moon'. For a month use "
             "forecast_month; for a year use forecast_year."
         ),
