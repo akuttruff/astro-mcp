@@ -97,8 +97,22 @@ def test_a_year_has_a_skeleton_and_themes_and_stays_within_budget(year):
 
 def test_retrograde_passes_are_numbered(year):
     passes = [h for h in year["headline_transits"] if h["pass"]]
-    if passes:  # a slow planet in orb twice across a year is the common case, not a guaranteed one
-        assert all("pass " in h["label"] and " of " in h["pass"] for h in passes)
+    assert passes, "no retrograde run among a year's headlines"
+    for h in passes:
+        assert f"pass {h['pass']} of this contact" in h["label"]
+        n, _of, total = h["pass"].split()
+        assert int(total) == len(h["passes"]) >= 2
+        # The pass numbered is the one the period's exact (or nearest) moment is.
+        assert h["passes"][int(n) - 1] == (h["exact"] or h["nearest_exact"])
+
+
+def test_every_headline_lists_the_passes_of_its_run(week):
+    jupiter = next(h for h in week["headline_transits"] if h["transiting"] == "Jupiter" and h["natal"] == "Sun")
+    assert jupiter["passes"] == ["2026-10-06 16:36", "2027-02-21 10:07", "2027-06-02 09:19"]
+    assert jupiter["pass"] == "1 of 3"
+    for h in week["headline_transits"]:
+        assert isinstance(h["passes"], list) and h["passes"]
+        assert (h["pass"] is None) == (len(h["passes"]) == 1)
 
 
 def test_a_week_is_seven_days_with_the_fast_planets_but_not_the_moon(week):

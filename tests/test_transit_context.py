@@ -189,3 +189,29 @@ def test_a_snapshot_finds_the_slow_planets_exact_moments_up_to_a_year_away():
     assert exact[("Pluto", "Trine", "Chiron")] == "2025-12-07 16:36"
     assert exact[("Neptune", "Square", "Neptune")] == "2026-02-28 14:25"
     assert exact[("Uranus", "Conjunction", "True North Node")] == "2027-06-11 08:19"
+
+
+def test_a_contact_carries_every_pass_of_its_retrograde_run():
+    # Jupiter squares natal Sun three times over its 2026-27 loop; the October chart knows all three.
+    chart = json.loads(create_transit_chart(transit_date_time="2026-10-14 10:06", **BIRTH))
+    by_pair = {(a["from_object"], a["to_object"]): a for a in chart["aspects"]}
+    jupiter = by_pair[("Jupiter", "Sun")]
+    assert jupiter["passes"] == ["2026-10-06 16:36", "2027-02-21 10:07", "2027-06-02 09:19"]
+    assert jupiter["pass"] == "1 of 3"
+    assert jupiter["label"].endswith("pass 1 of 3 of this contact, also exact 2027-02-21 10:07, 2027-06-02 09:19")
+    # A run already over says so, and one that is a single pass says nothing.
+    assert by_pair[("Pluto", "Chiron")]["pass"] == "3 of 3"
+    moon = by_pair[("Moon", "True North Node")]
+    assert moon["passes"] == [moon["exact_at"]] and moon["pass"] is None and "pass" not in moon["label"]
+    # Every exact_at is one of its own passes.
+    for a in chart["aspects"]:
+        assert a["exact_at"] in a["passes"], a["label"]
+
+
+def test_a_fast_planet_run_is_not_confused_with_its_opposite_point():
+    # Mars moves far enough in two years to reach the other square: not a pass of this one.
+    chart = json.loads(create_transit_chart(transit_date_time="2026-10-14 10:06", max_orb=8, **BIRTH))
+    for a in chart["aspects"]:
+        if a["from_object"] in ("Sun", "Mercury", "Venus", "Mars"):
+            assert 1 <= len(a["passes"]) <= 3, a["label"]
+            assert all("2025" < p < "2029" for p in a["passes"])

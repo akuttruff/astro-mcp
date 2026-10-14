@@ -376,9 +376,8 @@ def _refine_span_exact(run_days: list[str], from_name: str, to_name: str,
 
     if jd_exact is None:
         return None
-    # Round to the nearest minute (truncate after a 30s offset)
-    dt = ref_dt + timedelta(days=jd_exact - ref_jd, seconds=30)
-    return dt.strftime("%Y-%m-%d %H:%M")
+    # To the minute, added in UTC so a daylight-saving change inside the span does not shift an hour.
+    return _local(ref_dt, jd_exact - ref_jd).strftime("%Y-%m-%d %H:%M")
 
 
 def _orb_function(from_name: str, to_name: str, aspect_type: str, ids: dict[str, int],
@@ -405,6 +404,26 @@ def _orb_function(from_name: str, to_name: str, aspect_type: str, ids: dict[str,
     return f
 
 
+def _crosses(f_a: float, f_b: float) -> bool:
+    """A sign change of the signed orb between two steps that is a real exact moment.
+
+    The signed orb wraps from +180 to -180 when the pair reaches the
+    opposite point (a square's other square, a conjunction's opposition):
+    a sign change too, but no contact. A day's step never moves a pair
+    more than a few degrees, so a real crossing has both ends small.
+    """
+    return f_a * f_b <= 0 and abs(f_a) < 90 and abs(f_b) < 90
+
+
+def _local(ref: datetime, days: float) -> datetime:
+    """`days` after `ref`, to the minute, in ref's zone.
+
+    Julian days are absolute time: add them in UTC, so a daylight-saving
+    change between the reference and the moment does not shift an hour.
+    """
+    return (ref.astimezone(timezone.utc) + timedelta(days=days, seconds=30)).astimezone(ref.tzinfo)
+
+
 def _crossing_from(f, ref_jd: float, direction: int, max_days: int) -> float | None:
     """The first zero of f stepping a day at a time from ref_jd in `direction` (+1 ahead, -1 back), bisected.
 
@@ -419,11 +438,64 @@ def _crossing_from(f, ref_jd: float, direction: int, max_days: int) -> float | N
     for days_out in range(1, max_days + 1):
         jd_try = ref_jd + direction * days_out
         f_try = f(jd_try)
-        if f_prev * f_try <= 0:
+        if _crosses(f_prev, f_try):
             lo, hi = sorted((jd_prev, jd_try))
             return _bisect(f, lo, hi)
         f_prev, jd_prev = f_try, jd_try
     return None
+
+
+# A contact's passes are the exact moments of one run: the search outward from
+# the moment stops once the pair has drifted this far from the aspect (a
+# retrograde loop spans 20° at the very most, Mars's), so a return years later
+# is not counted as another pass, and the search is bounded either way.
+PASS_REACH = 20.0
+PASSES_DAYS = 730
+
+
+def _exact_passes(from_name: str, to_name: str, aspect_type: str, ids: dict[str, int],
+                  natal_positions: dict | None, around: datetime, max_days: int = PASSES_DAYS) -> list[datetime]:
+    """Every moment the contact is exact in its current run, in order: the passes of a retrograde loop.
+
+    Steps a day at a time back and ahead from `around` (which must be in
+    orb), bisecting each crossing, until the pair is PASS_REACH away or
+    max_days out. A planet that never retrogrades over the contact gives
+    one pass; three is the usual retrograde run, five happens for the
+    outer planets.
+    """
+    jd0 = _jd_of(around)
+    f = _orb_function(from_name, to_name, aspect_type, ids, natal_positions, jd0)
+    found: list[float] = []
+    for direction in (-1, +1):
+        jd_prev, f_prev = jd0, f(jd0)
+        for days_out in range(1, max_days + 1):
+            jd_try = jd0 + direction * days_out
+            f_try = f(jd_try)
+            if abs(f_try) > PASS_REACH:
+                break
+            if _crosses(f_prev, f_try):
+                lo, hi = sorted((jd_prev, jd_try))
+                x = _bisect(f, lo, hi)
+                # A crossing on a grid point shows in both its brackets: once is enough.
+                if x is not None and all(abs(x - y) > 1e-3 for y in found):
+                    found.append(x)
+            jd_prev, f_prev = jd_try, f_try
+    return [_local(around, x - jd0) for x in sorted(found)]
+
+
+def _pass_index(moment: str | None, passes: list[datetime]) -> int | None:
+    """Which of the run's passes `moment` ('YYYY-MM-DD HH:MM', in the passes' zone) is, or None."""
+    if not moment or not passes:
+        return None
+    when = datetime.strptime(moment, "%Y-%m-%d %H:%M").replace(tzinfo=passes[0].tzinfo)
+    nearest = min(range(len(passes)), key=lambda i: abs(passes[i] - when))
+    return nearest if abs(passes[nearest] - when) <= timedelta(days=1) else None
+
+
+def _pass_of(moment: str | None, passes: list[datetime]) -> str | None:
+    """'2 of 3': which of the run's passes `moment` is; None for a run of one."""
+    i = _pass_index(moment, passes)
+    return f"{i + 1} of {len(passes)}" if i is not None and len(passes) > 1 else None
 
 
 def _nearest_exact(from_name: str, to_name: str, aspect_type: str, ids: dict[str, int],
@@ -435,19 +507,13 @@ def _nearest_exact(from_name: str, to_name: str, aspect_type: str, ids: dict[str
     """
     jd_before, jd_after = _jd_of(before), _jd_of(after)
     f = _orb_function(from_name, to_name, aspect_type, ids, natal_positions, jd_before)
-
-    def local(ref: datetime, days: float) -> datetime:
-        # Julian days are absolute time: add them in UTC, so a daylight-saving
-        # change between the reference and the moment does not shift an hour.
-        return (ref.astimezone(timezone.utc) + timedelta(days=days, seconds=30)).astimezone(ref.tzinfo)
-
     found = []
     back = _crossing_from(f, jd_before, -1, max_days)
     if back is not None:
-        found.append((jd_before - back, local(before, back - jd_before)))
+        found.append((jd_before - back, _local(before, back - jd_before)))
     ahead = _crossing_from(f, jd_after, +1, max_days)
     if ahead is not None:
-        found.append((ahead - jd_after, local(after, ahead - jd_after)))
+        found.append((ahead - jd_after, _local(after, ahead - jd_after)))
     return min(found)[1] if found else None
 
 
@@ -504,7 +570,8 @@ def create_transit_chart(
     - Transiting planets (decimal + degree-and-minute position, natal house)
     - The natal chart's house cusps
     - Transit-to-natal aspects (type, orb, exact_at: local moment the aspect
-      is exact, null when more than 366 days from the snapshot), filtered by
+      is exact, null when more than 366 days from the snapshot; passes: every
+      exact moment of its current run, pass: which one exact_at is), filtered by
       aspect_type/max_orb/object_filter when provided
 
     Args:
@@ -643,6 +710,15 @@ def create_transit_chart(
         }
         for aspect in filtered_aspects:
             aspect["exact_at"] = _aspect_exact_at(aspect, object_ids, natal_positions, snapshot)
+            # The whole run this moment belongs to: a retrograde loop's three
+            # (or five) exact passes, so one date is never mistaken for the end.
+            passes = _exact_passes(aspect["from_object"], aspect["to_object"], aspect["type"], object_ids,
+                                   natal_positions, snapshot)
+            aspect["passes"] = [p.strftime("%Y-%m-%d %H:%M") for p in passes]
+            i = _pass_index(aspect["exact_at"], passes)
+            if i is not None:  # the same instant, found twice: one spelling
+                aspect["exact_at"] = aspect["passes"][i]
+            aspect["pass"] = _pass_of(aspect["exact_at"], passes)
             # Both ends spelled out, so "Saturn square Saturn" can only be
             # read as what it is: the transiting and the natal degree.
             moving = sign_position(transit_positions[aspect["from_object"]])
@@ -666,6 +742,9 @@ def create_transit_chart(
             if movement:
                 label += f", {movement.lower().replace('applicative', 'applying').replace('separative', 'separating')}"
             label += f", exact {aspect['exact_at']}" if aspect["exact_at"] else f", exact more than {EXACT_SEARCH_DAYS} days away"
+            if aspect["pass"]:
+                others = [p for p in aspect["passes"] if p != aspect["exact_at"]]
+                label += f"; pass {aspect['pass']} of this contact, also exact {', '.join(others)}"
             aspect["label"] = label
 
         # Transiting objects placed in the natal chart's (whole sign) houses.
@@ -696,7 +775,10 @@ def create_transit_chart(
                     "natal points, angles included, that 'aspects' are measured against -- quote "
                     "both ends from from_position/to_position. Each aspect's 'exact_at' is the "
                     "local moment it is (or was) exact - null when that moment lies more than "
-                    "366 days from the snapshot. For 'what is coming up / how long does it last', "
+                    "366 days from the snapshot. 'passes' lists every exact moment of the contact's "
+                    "current run (a retrograde loop's passes, searched two years either way) and 'pass' "
+                    "says which of them 'exact_at' is, so quote the whole run when there is one. "
+                    "For 'what is coming up / how long does it last', "
                     "call list_upcoming_transits with start_date/end_date instead of estimating "
                     "timing from this chart."
                 ),
@@ -1371,7 +1453,9 @@ def register(mcp: MCPServer):
             "Use for 'what is the sky like right now' (omit transit_date_time) "
             "or a user-given date/time, and for lunation work (set transit_date_time to the exact moment of a new or full moon). "
             "Each aspect includes 'exact_at': the local moment (nearest minute) it is or was exact, so 'when exactly does X "
-            "aspect Y' is answered directly (null when more than 366 days away). NOT for span or duration questions - it "
+            "aspect Y' is answered directly (null when more than 366 days away), and 'passes' lists every exact moment of "
+            "the contact's current run with 'pass' saying which this is, so a retrograde's three passes are all quoted. "
+            "NOT for span or duration questions - it "
             "shows one moment and cannot show when an aspect starts or ends. For 'what transits are coming up', 'when will X "
             "happen', or 'how long does it last', use list_upcoming_transits, which returns dated aspects from the ephemeris."
         )

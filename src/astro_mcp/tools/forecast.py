@@ -29,7 +29,8 @@ from astro_mcp.config import get_config
 from astro_mcp.schemas import get_coordinates_for_params
 from astro_mcp.tools.timing import lunations_and_eclipses
 from astro_mcp.tools.transit import (
-    _bisect, _chart_tz, _house_of, _jd_of, _nearest_exact, _object_ids, _peak_facts, _refine_span_exact,
+    _bisect, _chart_tz, _exact_passes, _house_of, _jd_of, _nearest_exact, _object_ids, _pass_index, _pass_of, _peak_facts,
+    _refine_span_exact,
 )
 from astro_mcp.utils import (
     NATAL_TRANSIT_TARGETS, SIGNS, _aspects_between, aspect_label, describe_chart_error, error_response,
@@ -162,14 +163,6 @@ def _headline_transits(daily, movers, natal_chart, natal_positions, ids, tz, fir
             peak_day = min(run, key=lambda d: orb_by_day[d])
             facts = _peak_facts(planet, natal_name, ids, natal_positions, natal_houses, cusps, exact, peak_day, tz)
             weight = SLOWNESS[planet] * (2 if natal_name in KEY_POINTS or natal_name == ruler else 1) * ASPECT_WEIGHT[aspect]
-            when = f"exact {exact}" if exact else f"tightest {peak_day}"
-            label = f"{when}: " + aspect_label(
-                planet, facts["from_position"], aspect, natal_name, facts["to_position"], natal_house=facts.get("to_house"),
-            )
-            if len(runs) > 1:
-                label += f" -- pass {i + 1} of {len(runs)} of this contact in the period"
-            if facts.get("from_retrograde"):
-                label += ", retrograde"
             # Which way it is going over the period, for a contact that does not perfect in it:
             # the orb closing from the first in-orb day to the last is applying, opening is separating.
             movement = None
@@ -185,6 +178,26 @@ def _headline_transits(daily, movers, natal_chart, natal_positions, ids, tz, fir
                     NEAREST_EXACT_DAYS,
                 )
                 nearest = nearest_dt.strftime("%Y-%m-%d %H:%M") if nearest_dt else None
+            # The whole run this contact belongs to, in or out of the period: a
+            # retrograde loop's passes, so "exact Oct 6" is never taken for the end of it.
+            mid = datetime.combine(date.fromisoformat(run[len(run) // 2]), datetime.min.time(), tzinfo=tz) + timedelta(hours=12)
+            passes_dt = _exact_passes(planet, natal_name, aspect, ids, natal_positions, mid)
+            passes = [p.strftime("%Y-%m-%d %H:%M") for p in passes_dt]
+            i = _pass_index(nearest, passes_dt)
+            if i is not None:  # the same instant found on two grids can round a minute apart: one spelling
+                nearest = passes[i]
+                exact = passes[i] if exact else None
+            which = _pass_of(nearest, passes_dt)
+
+            when = f"exact {exact}" if exact else f"tightest {peak_day}"
+            label = f"{when}: " + aspect_label(
+                planet, facts["from_position"], aspect, natal_name, facts["to_position"], natal_house=facts.get("to_house"),
+            )
+            if which:
+                label += f" -- pass {which} of this contact, also exact {', '.join(p for p in passes if p != nearest)}"
+            if facts.get("from_retrograde"):
+                label += ", retrograde"
+            if not exact:
                 if nearest:
                     label += f"; not exact in the period, exact {nearest}"
                 else:
@@ -195,7 +208,7 @@ def _headline_transits(daily, movers, natal_chart, natal_positions, ids, tz, fir
                 "transiting": planet, "natal": natal_name, "aspect": aspect,
                 "start": run[0], "end": run[-1], "exact": exact, "nearest_exact": nearest, "movement": movement,
                 "orb": round(min(orb_by_day[d] for d in run), 2),
-                "pass": f"{i + 1} of {len(runs)}" if len(runs) > 1 else None,
+                "pass": which, "passes": passes,
                 "from_position": facts["from_position"], "to_position": facts["to_position"],
                 "natal_house": facts.get("to_house"), "retrograde": facts.get("from_retrograde", False),
                 "weight": round(weight, 2), "label": label,
@@ -369,7 +382,8 @@ def _digest(date_time: str, latitude: str, longitude: str, first: date, last: da
             f"{ruler} count double) and the aspect"
             + (": the contacts exact within the week come first as its events, then the slow planets in orb as its "
                "backdrop" if scope.get("exact_first") else "")
-            + ". Positions are at the exact moment. A contact listed with 'pass n of m' recurs as the planet retrogrades. "
+            + ". Positions are at the exact moment. 'passes' lists every exact moment of a contact's current run, in "
+            "and out of the period (a retrograde loop's passes), and 'pass n of m' says which of them this is. "
             "'exact' is the exact moment when it falls in the period; 'nearest_exact' is that moment, or otherwise the "
             "nearest one before or after the period, with 'movement' saying whether the orb closes (applying) or opens "
             "(separating) across the period."
