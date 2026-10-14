@@ -481,9 +481,13 @@ def create_transit_chart(
     state: Annotated[str | None, Field(description="State or province, to disambiguate the city.")] = None,
     country: Annotated[str | None, Field(description="Country, to disambiguate the city.")] = None,
 ) -> str:
-    """Generate a transit chart for ONE specific moment: transiting planet positions (placed in the natal chart's houses) and their aspects to the natal chart.
+    """Daily readings and one-moment snapshots: a transit chart for ONE specific moment (today, a given day, or now): transiting planet positions (placed in the natal chart's houses) and their aspects to the natal chart.
 
     Use this tool when:
+    - The user asks for a daily reading: "my forecast / horoscope / transits for
+      today" (omit transit_date_time), or for tomorrow or one named day (that
+      date at 12:00). This is the daily forecast tool; forecast_week is for a
+      whole week, not a single day.
     - The user asks what the sky looks like right now (transit_date_time omitted = current time)
     - The user gives a specific date/time for a transit snapshot
     - Tracking lunar transits (lunations) - set transit_date_time to the exact moment

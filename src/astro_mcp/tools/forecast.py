@@ -421,7 +421,7 @@ def forecast_week(
     state: str | None = None,
     country: str | None = None,
 ) -> str:
-    """A week's forecast for a birth chart, seven days from start_date: the weightiest transits (Sun, Mercury, Venus, Mars and the slow planets) with exact moments, the week's new/full moons and eclipses in the natal houses, and every station and sign ingress. Use for "my forecast for this week / the week ahead"."""
+    """A week's forecast for a birth chart, seven days from start_date: the weightiest transits (Sun, Mercury, Venus, Mars and the slow planets) with exact moments, the week's new/full moons and eclipses in the natal houses, and every station and sign ingress. Use for "my forecast for this week / the week ahead" only. Not for a single day: for "today", "tomorrow" or one named day use create_transit_chart."""
     try:
         latitude, longitude = _resolve(latitude, longitude, city, state, country)
     except ValueError as e:
