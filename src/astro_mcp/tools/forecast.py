@@ -54,8 +54,9 @@ YEAR_EVENT_MOVERS = ['Mars'] + YEAR_MOVERS
 ASPECT_WEIGHT = {'Conjunction': 1.0, 'Opposition': 1.0, 'Square': 0.9, 'Trine': 0.7, 'Sextile': 0.5}
 # The natal points whose transits matter most, with the chart ruler added per chart.
 KEY_POINTS = {'Sun', 'Moon', 'Asc', 'MC'}
-WEEK_HEADLINES = 8
-MONTH_HEADLINES = 12
+# Caps on the ranked list, for the response budget; the client's table narrows it by orb.
+WEEK_HEADLINES = 12
+MONTH_HEADLINES = 16
 YEAR_HEADLINES = 25
 PER_MONTH = 3
 ECLIPSE_WEIGHT = 6.0
