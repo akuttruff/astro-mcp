@@ -452,7 +452,7 @@ def _nearest_exact(from_name: str, to_name: str, aspect_type: str, ids: dict[str
 
 
 # How far either way a snapshot aspect's exact moment is searched for.
-EXACT_SEARCH_DAYS = 180
+EXACT_SEARCH_DAYS = 366
 
 
 def _aspect_exact_at(aspect: dict, ids: dict[str, int],
@@ -504,7 +504,7 @@ def create_transit_chart(
     - Transiting planets (decimal + degree-and-minute position, natal house)
     - The natal chart's house cusps
     - Transit-to-natal aspects (type, orb, exact_at: local moment the aspect
-      is exact, null when more than 180 days from the snapshot), filtered by
+      is exact, null when more than 366 days from the snapshot), filtered by
       aspect_type/max_orb/object_filter when provided
 
     Args:
@@ -696,7 +696,7 @@ def create_transit_chart(
                     "natal points, angles included, that 'aspects' are measured against -- quote "
                     "both ends from from_position/to_position. Each aspect's 'exact_at' is the "
                     "local moment it is (or was) exact - null when that moment lies more than "
-                    "180 days from the snapshot. For 'what is coming up / how long does it last', "
+                    "366 days from the snapshot. For 'what is coming up / how long does it last', "
                     "call list_upcoming_transits with start_date/end_date instead of estimating "
                     "timing from this chart."
                 ),
@@ -1211,7 +1211,7 @@ def verify_claim(
 
     Returns a verdict:
     - 'confirmed': the aspect is within orb on that date (positions and orb
-      given, and the exact moment if it falls within 180 days).
+      given, and the exact moment if it falls within 366 days).
     - 'near': not within orb that day, but exact within 30 days of it -- the
       claim has the right aspect and the wrong date; the exact moment says
       which.
@@ -1310,12 +1310,12 @@ def verify_claim(
         claim = f"transiting {moving} {aspect.lower()} natal {fixed} on {on_date}"
         notes = {
             "confirmed": f"In effect on {on_date}: orb {orb:.2f}° (allowed {allowed:.2f}°)."
-                         + (f" Exact at {exact}." if exact else " Exact moment more than 180 days away."),
+                         + (f" Exact at {exact}." if exact else f" Exact moment more than {EXACT_SEARCH_DAYS} days away."),
             "near": f"Not within orb on {on_date} ({orb:.2f}°, allowed {allowed:.2f}°), but exact at {exact}, "
                     f"{abs(days_off or 0):.1f} days {'later' if (days_off or 0) > 0 else 'earlier'}. The date is off, not the aspect.",
             "not found": f"No {aspect.lower()} between transiting {moving} and natal {fixed} on {on_date} "
                          f"(orb {orb:.2f}°, allowed {allowed:.2f}°)"
-                         + (f"; the nearest exact moment is {exact}." if exact else "; none within 180 days of it."),
+                         + (f"; the nearest exact moment is {exact}." if exact else f"; none within {EXACT_SEARCH_DAYS} days of it."),
         }
         return json.dumps({
             "claim": claim,
@@ -1371,7 +1371,7 @@ def register(mcp: MCPServer):
             "Use for 'what is the sky like right now' (omit transit_date_time) "
             "or a user-given date/time, and for lunation work (set transit_date_time to the exact moment of a new or full moon). "
             "Each aspect includes 'exact_at': the local moment (nearest minute) it is or was exact, so 'when exactly does X "
-            "aspect Y' is answered directly (null when more than 180 days away). NOT for span or duration questions - it "
+            "aspect Y' is answered directly (null when more than 366 days away). NOT for span or duration questions - it "
             "shows one moment and cannot show when an aspect starts or ends. For 'what transits are coming up', 'when will X "
             "happen', or 'how long does it last', use list_upcoming_transits, which returns dated aspects from the ephemeris."
         )

@@ -180,3 +180,12 @@ def test_a_snapshot_finds_an_exact_moment_months_away():
     jupiter = next(a for a in later["aspects"] if a["from_object"] == "Jupiter" and a["to_object"] == "Sun")
     assert jupiter["exact_at"] == "2026-10-06 16:36"
     assert ", exact 2026-10-06 16:36" in jupiter["label"]
+
+
+def test_a_snapshot_finds_the_slow_planets_exact_moments_up_to_a_year_away():
+    # Retrograde loops leave the outer planets in orb for months either side of exact.
+    chart = json.loads(create_transit_chart(transit_date_time="2026-10-14 10:06", **BIRTH))
+    exact = {(a["from_object"], a["type"], a["to_object"]): a["exact_at"] for a in chart["aspects"]}
+    assert exact[("Pluto", "Trine", "Chiron")] == "2025-12-07 16:36"
+    assert exact[("Neptune", "Square", "Neptune")] == "2026-02-28 14:25"
+    assert exact[("Uranus", "Conjunction", "True North Node")] == "2027-06-11 08:19"

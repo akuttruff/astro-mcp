@@ -1125,7 +1125,7 @@ class TestExactAspectMoments:
                 continue
             exact_dt = datetime.fromisoformat(aspect["exact_at"])
             delta = abs((exact_dt - datetime.fromisoformat(snapshot)).total_seconds())
-            assert delta <= 180 * 86400, f"exact_at beyond search radius: {aspect}"
+            assert delta <= 366 * 86400, f"exact_at beyond search radius: {aspect}"
             chart = _transits_for_date(
                 aspect["exact_at"], reference_a["latitude"],
                 reference_a["longitude"], natal, config
