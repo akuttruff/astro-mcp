@@ -1,12 +1,14 @@
-"""Month and year forecasts: a digest of what matters over a long range.
+"""Week, month and year forecasts: a digest of what matters over a range.
 
-list_upcoming_transits answers "what is happening this week" by sampling
-every planet every day and reporting every contact. Over a month that is
-already a lot; over a year it is hundreds of spans, most of them the fast
-planets, and the response has to be cut to fit. A long-range forecast is a
-different question -- it is about the slow planets, the handful of exact
+list_upcoming_transits reports every contact of every planet, day by day.
+Over a week that is dominated by the Moon; over a month it is already a
+lot; over a year it is hundreds of spans, most of them the fast planets,
+and the response has to be cut to fit. A forecast is a different question
+-- it is about the planets that shape the period, the handful of exact
 dates that matter, where they land in the chart, and the shape of the
 period -- so these tools compute the story rather than the raw material.
+The horizon decides which planets count: a week keeps the Sun, Mercury,
+Venus and Mars that a month leaves out, and a year keeps Jupiter outward.
 
 Same source, less waste: one immanuel natal chart, then daily positions
 straight from immanuel's ephemeris module (the same call immanuel makes
@@ -35,20 +37,47 @@ from astro_mcp.utils import (
 )
 
 # How much a transiting planet's contact weighs: the slower the planet, the
-# longer and rarer the transit, the more it shapes a period.
-SLOWNESS = {'Mars': 1, 'Jupiter': 3, 'Chiron': 3, 'Saturn': 4, 'Uranus': 4, 'Neptune': 5, 'Pluto': 5}
+# longer and rarer the transit, the more it shapes a period. The Sun,
+# Mercury and Venus only count in a week, where a contact that lasts a day
+# or two is the week's texture.
+SLOWNESS = {
+    'Mercury': 0.5, 'Venus': 0.7, 'Sun': 0.8, 'Mars': 1,
+    'Jupiter': 3, 'Chiron': 3, 'Saturn': 4, 'Uranus': 4, 'Neptune': 5, 'Pluto': 5,
+}
+WEEK_MOVERS = ['Sun', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Chiron', 'Uranus', 'Neptune', 'Pluto']
 MONTH_MOVERS = ['Mars', 'Jupiter', 'Saturn', 'Chiron', 'Uranus', 'Neptune', 'Pluto']
 YEAR_MOVERS = ['Jupiter', 'Saturn', 'Chiron', 'Uranus', 'Neptune', 'Pluto']
 # Stations and ingresses are rarer than aspects, so the faster planets can be included.
+WEEK_EVENT_MOVERS = WEEK_MOVERS
 MONTH_EVENT_MOVERS = ['Mercury', 'Venus'] + MONTH_MOVERS
 YEAR_EVENT_MOVERS = ['Mars'] + YEAR_MOVERS
 ASPECT_WEIGHT = {'Conjunction': 1.0, 'Opposition': 1.0, 'Square': 0.9, 'Trine': 0.7, 'Sextile': 0.5}
 # The natal points whose transits matter most, with the chart ruler added per chart.
 KEY_POINTS = {'Sun', 'Moon', 'Asc', 'MC'}
+WEEK_HEADLINES = 8
 MONTH_HEADLINES = 12
 YEAR_HEADLINES = 25
 PER_MONTH = 3
 ECLIPSE_WEIGHT = 6.0
+WEEK_DAYS = 7
+
+# What each horizon scans and keeps. The Moon is never a headline: it
+# aspects something every few hours, which is list_upcoming_transits' job.
+HORIZONS = {
+    "week": {
+        "movers": WEEK_MOVERS, "event_movers": WEEK_EVENT_MOVERS, "headlines": WEEK_HEADLINES, "eclipses_only": False,
+        "exact_first": True,
+        "left_out": {"objects": ["Moon"], "why": "hourly material; ask list_upcoming_transits with object_filter='Moon' for the Moon's contacts"},
+    },
+    "month": {
+        "movers": MONTH_MOVERS, "event_movers": MONTH_EVENT_MOVERS, "headlines": MONTH_HEADLINES, "eclipses_only": False,
+        "left_out": {"objects": ["Moon", "Sun", "Mercury", "Venus"], "why": "daily material; for a particular week use forecast_week, or list_upcoming_transits with object_filter='Moon'"},
+    },
+    "year": {
+        "movers": YEAR_MOVERS, "event_movers": YEAR_EVENT_MOVERS, "headlines": YEAR_HEADLINES, "eclipses_only": True,
+        "left_out": {"objects": ["Moon", "Sun", "Mercury", "Venus", "Mars (aspects)"], "why": "fast movers aspect something every few days; for a particular month use forecast_month"},
+    },
+}
 
 
 def _chart_ruler(natal_chart) -> str | None:
@@ -107,8 +136,15 @@ def _aspect_spans(daily, movers: list[str], natal_positions: dict, first: date, 
     return samples, spans
 
 
-def _headline_transits(daily, movers, natal_chart, natal_positions, ids, tz, first, last, max_orb, limit, ruler):
-    """Ranked transit-to-natal contacts, each with its exact moment and both ends spelled out."""
+def _headline_transits(daily, movers, natal_chart, natal_positions, ids, tz, first, last, max_orb, limit, ruler,
+                       exact_first: bool = False):
+    """Ranked transit-to-natal contacts, each with its exact moment and both ends spelled out.
+
+    With `exact_first`, a contact exact within the period outranks any that
+    is not, whatever its weight: over a week the slow planets sit in orb
+    without going exact, and by weight alone they would fill every slot
+    ahead of the week's own events. Within each group the weight ranks.
+    """
     natal_houses = {
         o.name: o.house.number for o in natal_chart.objects.values()
         if o.name in NATAL_TRANSIT_TARGETS and getattr(o, 'house', None)
@@ -141,7 +177,7 @@ def _headline_transits(daily, movers, natal_chart, natal_positions, ids, tz, fir
                 "natal_house": facts.get("to_house"), "retrograde": facts.get("from_retrograde", False),
                 "weight": round(weight, 2), "label": label,
             })
-    entries.sort(key=lambda e: (-e["weight"], e["orb"], e["start"]))
+    entries.sort(key=lambda e: (0 if exact_first and e["exact"] else 1, -e["weight"], e["orb"], e["start"]))
     total = len(entries)
     return entries[:limit], total
 
@@ -269,7 +305,7 @@ def _validate(date_time, latitude, longitude):
 
 
 def _digest(date_time: str, latitude: str, longitude: str, first: date, last: date, max_orb: float, horizon: str) -> dict:
-    """The shared engine behind both tools; `horizon` is 'month' or 'year'."""
+    """The shared engine behind the three tools; `horizon` is 'week', 'month' or 'year' (see HORIZONS)."""
     from immanuel import charts
 
     config = get_config()
@@ -283,17 +319,18 @@ def _digest(date_time: str, latitude: str, longitude: str, first: date, last: da
     tz = _chart_tz(latitude, longitude)
     ruler = _chart_ruler(natal_chart)
 
-    movers = MONTH_MOVERS if horizon == "month" else YEAR_MOVERS
-    event_movers = MONTH_EVENT_MOVERS if horizon == "month" else YEAR_EVENT_MOVERS
+    scope = HORIZONS[horizon]
+    movers = scope["movers"]
+    event_movers = scope["event_movers"]
     daily = _daily_positions(ids, sorted(set(movers) | set(event_movers), key=event_movers.index), first, last, tz)
 
     headline, total = _headline_transits(
-        daily, movers, natal_chart, natal_positions, ids, tz, first, last, max_orb,
-        MONTH_HEADLINES if horizon == "month" else YEAR_HEADLINES, ruler,
+        daily, movers, natal_chart, natal_positions, ids, tz, first, last, max_orb, scope["headlines"], ruler,
+        exact_first=scope.get("exact_first", False),
     )
     stations = _stations(daily, event_movers, first, last, ids, tz, cusps)
     ingresses = _ingresses(daily, event_movers, first, last, ids, tz, cusps)
-    lunations = _lunations(first, last, date_time, float(latitude), float(longitude), eclipses_only=(horizon == "year"))
+    lunations = _lunations(first, last, date_time, float(latitude), float(longitude), eclipses_only=scope["eclipses_only"])
 
     result = {
         "forecast": horizon,
@@ -306,10 +343,12 @@ def _digest(date_time: str, latitude: str, longitude: str, first: date, last: da
         "headline_note": (
             f"The {len(headline)} weightiest of {total} contacts within {max_orb}° in the period, ranked by how slow "
             f"the transiting planet is, how central the natal point is (Sun, Moon, Asc, MC and the chart ruler "
-            f"{ruler} count double) and the aspect. Positions are at the exact moment. A contact listed with "
-            f"'pass n of m' recurs as the planet retrogrades."
+            f"{ruler} count double) and the aspect"
+            + (": the contacts exact within the week come first as its events, then the slow planets in orb as its "
+               "backdrop" if scope.get("exact_first") else "")
+            + ". Positions are at the exact moment. A contact listed with 'pass n of m' recurs as the planet retrogrades."
         ),
-        ("lunations" if horizon == "month" else "eclipses"): lunations,
+        ("eclipses" if scope["eclipses_only"] else "lunations"): lunations,
         "ingresses": ingresses,
         "stations": stations,
     }
@@ -337,19 +376,50 @@ def _digest(date_time: str, latitude: str, longitude: str, first: date, last: da
             f"natal house {h}": sorted(p) for h, p in sorted(themes.items(), key=lambda kv: int(kv[0]))
         }
 
-    left_out = (
-        {"objects": ["Moon"], "why": "daily material; ask list_upcoming_transits with object_filter='Moon' for a week"}
-        if horizon == "month" else
-        {"objects": ["Moon", "Sun", "Mercury", "Venus", "Mars (aspects)"],
-         "why": "fast movers aspect something every few days; for a particular month use forecast_month"}
-    )
-    result["left_out"] = left_out
+    result["left_out"] = scope["left_out"]
     result["how_to_read"] = (
         "Quote the labels; every date and degree here comes from the ephemeris. Lead with the headline transits "
         "in order, then the lunations/eclipses, stations and ingresses that fall in the period. Do not add transits "
         "that are not listed -- check any you want to mention with verify_claim."
     )
     return result
+
+
+def forecast_week(
+    date_time: Annotated[str, Field(description="Birth date and time, 'YYYY-MM-DD HH:MM'.")],
+    latitude: str | float | None = None,
+    longitude: str | float | None = None,
+    start_date: Annotated[str | None, Field(description="First of the seven days, 'YYYY-MM-DD'. Omit for today.")] = None,
+    max_orb: Annotated[float | None, Field(description="Widest orb that counts, in degrees. Default 1.5.")] = None,
+    city: Annotated[str | None, Field(description="Birth city, instead of latitude/longitude.")] = None,
+    state: str | None = None,
+    country: str | None = None,
+) -> str:
+    """A week's forecast for a birth chart, seven days from start_date: the weightiest transits (Sun, Mercury, Venus, Mars and the slow planets) with exact moments, the week's new/full moons and eclipses in the natal houses, and every station and sign ingress. Use for "my forecast for this week / the week ahead"."""
+    try:
+        latitude, longitude = _resolve(latitude, longitude, city, state, country)
+    except ValueError as e:
+        return error_response("Invalid location", str(e))
+    except Exception as e:
+        return error_response("Geocoding failed", str(e))
+    bad = _validate(date_time, latitude, longitude)
+    if bad:
+        return bad
+    tz = _chart_tz(latitude, longitude)
+    if start_date:
+        valid, error = validate_date_string(f"{start_date} 00:00")
+        if not valid:
+            return error_response("Invalid start_date", error)
+        first = date.fromisoformat(start_date)
+    else:
+        first = datetime.now(tz).date()
+    last = first + timedelta(days=WEEK_DAYS - 1)
+    orb = 1.5 if max_orb is None else float(max_orb)
+    try:
+        return _bounded(_digest(date_time, latitude, longitude, first, last, orb, "week"))
+    except Exception as e:
+        known = describe_chart_error(e)
+        return error_response(*known) if known else error_response("Forecast failed", str(e))
 
 
 def forecast_month(
@@ -431,13 +501,25 @@ def forecast_year(
 def register(mcp: MCPServer):
     """Register the forecast tools."""
     mcp.add_tool(
+        forecast_week,
+        name="forecast_week",
+        description=(
+            "A week's forecast for a birth chart, seven days from start_date (today if omitted): the weightiest "
+            "transits of the Sun, Mercury, Venus, Mars and the slow planets with exact moments and both positions, "
+            "the week's new/full moons and eclipses in the natal houses, and every station and sign ingress -- ranked "
+            "and labelled, ready to quote. Use for 'my forecast for this week / the week ahead / next week'. The Moon "
+            "is left out: for its contacts use list_upcoming_transits with object_filter='Moon'. For a month use "
+            "forecast_month; for a year use forecast_year."
+        ),
+    )
+    mcp.add_tool(
         forecast_month,
         name="forecast_month",
         description=(
             "A month's forecast for a birth chart: the weightiest transits (Mars outward) with exact dates and both "
             "positions, the month's new/full moons and eclipses in the natal houses, and every station and sign "
             "ingress -- ranked and labelled, ready to quote. Use for 'my forecast for this month / for October'. "
-            "For a week use list_upcoming_transits; for a year use forecast_year."
+            "For a week use forecast_week; for a year use forecast_year."
         ),
     )
     mcp.add_tool(

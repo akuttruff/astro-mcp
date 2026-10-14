@@ -5,12 +5,17 @@ import time
 import pytest
 
 from astro_mcp.tools.forecast import (
-    ASPECT_WEIGHT, MONTH_HEADLINES, SLOWNESS, YEAR_HEADLINES, forecast_month, forecast_year,
+    ASPECT_WEIGHT, MONTH_HEADLINES, SLOWNESS, WEEK_HEADLINES, YEAR_HEADLINES, forecast_month, forecast_week, forecast_year,
 )
 from astro_mcp.tools.transit import list_upcoming_transits
 
 BIRTH = dict(date_time="1984-05-10T20:44:00", latitude=37.77, longitude=-122.42)
 FAST = {"Moon", "Sun", "Mercury", "Venus"}
+
+
+@pytest.fixture(scope="module")
+def week():
+    return json.loads(forecast_week(start_date="2026-10-14", **BIRTH))
 
 
 @pytest.fixture(scope="module")
@@ -74,7 +79,7 @@ def test_a_month_lists_its_lunations_stations_and_ingresses_in_the_chart(month):
         assert s["station"] in {"retrograde", "direct"} and s["exact"].startswith("2026-10")
     for i in month["ingresses"]:
         assert i["exact"].startswith("2026-10") and "enters" in i["label"]
-    assert month["left_out"]["objects"] == ["Moon"]
+    assert month["left_out"]["objects"] == ["Moon", "Sun", "Mercury", "Venus"]
 
 
 def test_a_year_has_a_skeleton_and_themes_and_stays_within_budget(year):
@@ -96,7 +101,36 @@ def test_retrograde_passes_are_numbered(year):
         assert all("pass " in h["label"] and " of " in h["pass"] for h in passes)
 
 
+def test_a_week_is_seven_days_with_the_fast_planets_but_not_the_moon(week):
+    assert week["forecast"] == "week"
+    assert week["range"] == {"start": "2026-10-14", "end": "2026-10-20"}
+    heads = week["headline_transits"]
+    assert 0 < len(heads) <= WEEK_HEADLINES
+    # The week's events first (exact within it), then the backdrop; weight ranks within each group.
+    events = [h for h in heads if h["exact"]]
+    backdrop = [h for h in heads if not h["exact"]]
+    assert heads == events + backdrop
+    for group in (events, backdrop):
+        weights = [h["weight"] for h in group]
+        assert weights == sorted(weights, reverse=True)
+    assert events, "a week with nothing exact in it: pick another week"
+    assert any(h["transiting"] in {"Sun", "Mercury", "Venus", "Mars"} for h in events)
+    assert "Moon" not in {h["transiting"] for h in heads}
+    assert week["left_out"]["objects"] == ["Moon"]
+    for h in heads:
+        expected = SLOWNESS[h["transiting"]] * ASPECT_WEIGHT[h["aspect"]]
+        assert h["weight"] in (expected, expected * 2)
+        assert h["start"] >= "2026-10-14" and h["end"] <= "2026-10-20"
+    assert "lunations" in week and "eclipses" not in week
+    assert all("2026-10-14" <= e["exact"][:10] <= "2026-10-20" for e in week["lunations"] + week["stations"] + week["ingresses"])
+    # The same week, scanned contact by contact: every headline is a span the scan knows.
+    scan = json.loads(list_upcoming_transits(start_date="2026-10-14", end_date="2026-10-20", max_orb=1.5, **BIRTH))
+    spans = {(r["from_object"], r["to_object"], r["type"]) for r in scan["transits"]}
+    assert all((h["transiting"], h["natal"], h["aspect"]) in spans for h in heads)
+
+
 def test_bad_input_is_an_error_not_a_crash():
+    assert "error" in json.loads(forecast_week(start_date="next monday", **BIRTH))
     assert "error" in json.loads(forecast_month(month="October", **BIRTH))
     assert "error" in json.loads(forecast_year(start_date="soon", **BIRTH))
     assert "error" in json.loads(forecast_month(month="2026-10", date_time="1984-05-10 20:44"))
