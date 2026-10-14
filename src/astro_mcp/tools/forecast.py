@@ -29,7 +29,7 @@ from astro_mcp.config import get_config
 from astro_mcp.schemas import get_coordinates_for_params
 from astro_mcp.tools.timing import lunations_and_eclipses
 from astro_mcp.tools.transit import (
-    _bisect, _chart_tz, _house_of, _jd_of, _object_ids, _peak_facts, _refine_span_exact,
+    _bisect, _chart_tz, _house_of, _jd_of, _nearest_exact, _object_ids, _peak_facts, _refine_span_exact,
 )
 from astro_mcp.utils import (
     NATAL_TRANSIT_TARGETS, SIGNS, _aspects_between, aspect_label, describe_chart_error, error_response,
@@ -59,6 +59,8 @@ MONTH_HEADLINES = 12
 YEAR_HEADLINES = 25
 PER_MONTH = 3
 ECLIPSE_WEIGHT = 6.0
+# How far outside the period the exact moment of a contact in orb is looked for.
+NEAREST_EXACT_DAYS = 366
 WEEK_DAYS = 7
 
 # What each horizon scans and keeps. The Moon is never a headline: it
@@ -168,9 +170,30 @@ def _headline_transits(daily, movers, natal_chart, natal_positions, ids, tz, fir
                 label += f" -- pass {i + 1} of {len(runs)} of this contact in the period"
             if facts.get("from_retrograde"):
                 label += ", retrograde"
+            # Which way it is going over the period, for a contact that does not perfect in it:
+            # the orb closing from the first in-orb day to the last is applying, opening is separating.
+            movement = None
+            if not exact and len(run) > 1:
+                movement = "applying" if orb_by_day[run[-1]] < orb_by_day[run[0]] else "separating"
+            # A slow planet can sit in orb all period without perfecting: say when it does.
+            nearest = exact
+            if not exact:
+                nearest_dt = _nearest_exact(
+                    planet, natal_name, aspect, ids, natal_positions,
+                    datetime.combine(date.fromisoformat(run[0]), datetime.min.time(), tzinfo=tz),
+                    datetime.combine(date.fromisoformat(run[-1]), datetime.min.time(), tzinfo=tz) + timedelta(days=1),
+                    NEAREST_EXACT_DAYS,
+                )
+                nearest = nearest_dt.strftime("%Y-%m-%d %H:%M") if nearest_dt else None
+                if nearest:
+                    label += f"; not exact in the period, exact {nearest}"
+                else:
+                    label += f"; not exact within {NEAREST_EXACT_DAYS} days of the period"
+                if movement:
+                    label += f", {movement}"
             entries.append({
                 "transiting": planet, "natal": natal_name, "aspect": aspect,
-                "start": run[0], "end": run[-1], "exact": exact,
+                "start": run[0], "end": run[-1], "exact": exact, "nearest_exact": nearest, "movement": movement,
                 "orb": round(min(orb_by_day[d] for d in run), 2),
                 "pass": f"{i + 1} of {len(runs)}" if len(runs) > 1 else None,
                 "from_position": facts["from_position"], "to_position": facts["to_position"],
@@ -346,7 +369,10 @@ def _digest(date_time: str, latitude: str, longitude: str, first: date, last: da
             f"{ruler} count double) and the aspect"
             + (": the contacts exact within the week come first as its events, then the slow planets in orb as its "
                "backdrop" if scope.get("exact_first") else "")
-            + ". Positions are at the exact moment. A contact listed with 'pass n of m' recurs as the planet retrogrades."
+            + ". Positions are at the exact moment. A contact listed with 'pass n of m' recurs as the planet retrogrades. "
+            "'exact' is the exact moment when it falls in the period; 'nearest_exact' is that moment, or otherwise the "
+            "nearest one before or after the period, with 'movement' saying whether the orb closes (applying) or opens "
+            "(separating) across the period."
         ),
         ("eclipses" if scope["eclipses_only"] else "lunations"): lunations,
         "ingresses": ingresses,

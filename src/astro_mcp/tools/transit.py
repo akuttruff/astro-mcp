@@ -381,58 +381,92 @@ def _refine_span_exact(run_days: list[str], from_name: str, to_name: str,
     return dt.strftime("%Y-%m-%d %H:%M")
 
 
-def _aspect_exact_at(aspect: dict, ids: dict[str, int],
-                     natal_positions: dict | None,
-                     snapshot: datetime) -> str | None:
-    """Exact moment of a snapshot aspect as local 'YYYY-MM-DD HH:MM', or None.
+def _orb_function(from_name: str, to_name: str, aspect_type: str, ids: dict[str, int],
+                  natal_positions: dict | None, ref_jd: float):
+    """The signed orb of a pair as a function of Julian day, zero when the aspect is exact.
 
-    Expands outward from the snapshot one day at a time (both directions,
-    capped at 180 days) until the signed orb changes sign, then bisects.
-    None when the exact moment lies beyond the search radius (slow outer
-    planets) - the span list remains the source for those.
+    Which side of the aspect the pair sits on is read at `ref_jd`, so the
+    function is continuous through the exact moment nearest that day.
     """
     from immanuel.tools import ephemeris
 
-    from_name = aspect["from_object"]
-    to_name = aspect["to_object"]
-    angle = MAJOR_ASPECTS[aspect["type"]][0]
-
-    ref_jd = _jd_of(snapshot)
+    angle = MAJOR_ASPECTS[aspect_type][0]
 
     def lon_of(name: str, jd: float) -> float:
         if natal_positions is not None:
             return natal_positions[name]
         return ephemeris.get_planet(ids[name], jd)["lon"]
 
-    a0 = ephemeris.get_planet(ids[from_name], ref_jd)["lon"]
-    b0 = lon_of(to_name, ref_jd)
-    eps = _aspect_side(a0, b0, angle)
+    eps = _aspect_side(ephemeris.get_planet(ids[from_name], ref_jd)["lon"], lon_of(to_name, ref_jd), angle)
 
     def f(jd: float) -> float:
-        return _signed_orb(
-            ephemeris.get_planet(ids[from_name], jd)["lon"],
-            lon_of(to_name, jd), angle, eps
-        )
+        return _signed_orb(ephemeris.get_planet(ids[from_name], jd)["lon"], lon_of(to_name, jd), angle, eps)
 
-    f0 = f(ref_jd)
-    if abs(f0) < 0.005:  # exact at the snapshot, to within a couple of arcminutes
-        return (snapshot + timedelta(seconds=30)).strftime("%Y-%m-%d %H:%M")
+    return f
 
-    jd_exact = None
-    for days_out in range(1, 181):
-        for jd_try in (ref_jd + days_out / 24, ref_jd - days_out / 24):
-            f_try = f(jd_try)
-            if f0 * f_try < 0:
-                lo, hi = sorted((ref_jd, jd_try))
-                jd_exact = _bisect(f, lo, hi)
-                break
-        if jd_exact is not None:
-            break
 
-    if jd_exact is None:
-        return None
-    dt = snapshot + timedelta(days=jd_exact - ref_jd, seconds=30)
-    return dt.strftime("%Y-%m-%d %H:%M")
+def _crossing_from(f, ref_jd: float, direction: int, max_days: int) -> float | None:
+    """The first zero of f stepping a day at a time from ref_jd in `direction` (+1 ahead, -1 back), bisected.
+
+    None when the sign does not change within max_days. One day is a safe
+    step for every body but the Moon, which moves 15° a day and is never
+    searched this way; a station inside a step could hide a double
+    crossing, which only shifts which of two exact moments is reported.
+    """
+    f_prev, jd_prev = f(ref_jd), ref_jd
+    if f_prev == 0:
+        return ref_jd
+    for days_out in range(1, max_days + 1):
+        jd_try = ref_jd + direction * days_out
+        f_try = f(jd_try)
+        if f_prev * f_try <= 0:
+            lo, hi = sorted((jd_prev, jd_try))
+            return _bisect(f, lo, hi)
+        f_prev, jd_prev = f_try, jd_try
+    return None
+
+
+def _nearest_exact(from_name: str, to_name: str, aspect_type: str, ids: dict[str, int],
+                   natal_positions: dict | None, before: datetime, after: datetime, max_days: int) -> datetime | None:
+    """The exact moment of a contact nearest a period: searching back from `before` and ahead from `after`.
+
+    For one moment pass the same datetime twice. None when neither
+    direction crosses within max_days.
+    """
+    jd_before, jd_after = _jd_of(before), _jd_of(after)
+    f = _orb_function(from_name, to_name, aspect_type, ids, natal_positions, jd_before)
+
+    def local(ref: datetime, days: float) -> datetime:
+        # Julian days are absolute time: add them in UTC, so a daylight-saving
+        # change between the reference and the moment does not shift an hour.
+        return (ref.astimezone(timezone.utc) + timedelta(days=days, seconds=30)).astimezone(ref.tzinfo)
+
+    found = []
+    back = _crossing_from(f, jd_before, -1, max_days)
+    if back is not None:
+        found.append((jd_before - back, local(before, back - jd_before)))
+    ahead = _crossing_from(f, jd_after, +1, max_days)
+    if ahead is not None:
+        found.append((ahead - jd_after, local(after, ahead - jd_after)))
+    return min(found)[1] if found else None
+
+
+# How far either way a snapshot aspect's exact moment is searched for.
+EXACT_SEARCH_DAYS = 180
+
+
+def _aspect_exact_at(aspect: dict, ids: dict[str, int],
+                     natal_positions: dict | None,
+                     snapshot: datetime) -> str | None:
+    """Exact moment of a snapshot aspect as local 'YYYY-MM-DD HH:MM', or None.
+
+    The nearest exact moment either side of the snapshot, within
+    EXACT_SEARCH_DAYS. None beyond that (the slowest outer planets) -
+    the span list remains the source for those.
+    """
+    moment = _nearest_exact(aspect["from_object"], aspect["to_object"], aspect["type"], ids, natal_positions,
+                            snapshot, snapshot, EXACT_SEARCH_DAYS)
+    return moment.strftime("%Y-%m-%d %H:%M") if moment else None
 
 
 def create_transit_chart(
@@ -627,7 +661,7 @@ def create_transit_chart(
             movement = aspect.get("movement")
             if movement:
                 label += f", {movement.lower().replace('applicative', 'applying').replace('separative', 'separating')}"
-            label += f", exact {aspect['exact_at']}" if aspect["exact_at"] else ", exact more than 180 days away"
+            label += f", exact {aspect['exact_at']}" if aspect["exact_at"] else f", exact more than {EXACT_SEARCH_DAYS} days away"
             aspect["label"] = label
 
         # Transiting objects placed in the natal chart's (whole sign) houses.

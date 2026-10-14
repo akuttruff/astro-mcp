@@ -172,3 +172,11 @@ def test_verify_claim_takes_the_names_a_reader_uses():
         transiting_object="Vesta", natal_object="Sun", aspect_type="Trine", on_date="2026-10-01", **BIRTH,
     ))
     assert "error" in bad
+
+
+def test_a_snapshot_finds_an_exact_moment_months_away():
+    # Jupiter squared natal Sun exactly on 2026-10-06; a month later the chart still says when.
+    later = json.loads(create_transit_chart(transit_date_time="2026-11-05 12:00", max_orb=8, **BIRTH))
+    jupiter = next(a for a in later["aspects"] if a["from_object"] == "Jupiter" and a["to_object"] == "Sun")
+    assert jupiter["exact_at"] == "2026-10-06 16:36"
+    assert ", exact 2026-10-06 16:36" in jupiter["label"]

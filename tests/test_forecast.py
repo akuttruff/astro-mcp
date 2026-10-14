@@ -15,7 +15,7 @@ FAST = {"Moon", "Sun", "Mercury", "Venus"}
 
 @pytest.fixture(scope="module")
 def week():
-    return json.loads(forecast_week(start_date="2026-10-14", **BIRTH))
+    return json.loads(forecast_week(start_date="2026-10-12", **BIRTH))
 
 
 @pytest.fixture(scope="module")
@@ -103,7 +103,7 @@ def test_retrograde_passes_are_numbered(year):
 
 def test_a_week_is_seven_days_with_the_fast_planets_but_not_the_moon(week):
     assert week["forecast"] == "week"
-    assert week["range"] == {"start": "2026-10-14", "end": "2026-10-20"}
+    assert week["range"] == {"start": "2026-10-12", "end": "2026-10-18"}
     heads = week["headline_transits"]
     assert 0 < len(heads) <= WEEK_HEADLINES
     # The week's events first (exact within it), then the backdrop; weight ranks within each group.
@@ -120,13 +120,30 @@ def test_a_week_is_seven_days_with_the_fast_planets_but_not_the_moon(week):
     for h in heads:
         expected = SLOWNESS[h["transiting"]] * ASPECT_WEIGHT[h["aspect"]]
         assert h["weight"] in (expected, expected * 2)
-        assert h["start"] >= "2026-10-14" and h["end"] <= "2026-10-20"
+        assert h["start"] >= "2026-10-12" and h["end"] <= "2026-10-18"
     assert "lunations" in week and "eclipses" not in week
-    assert all("2026-10-14" <= e["exact"][:10] <= "2026-10-20" for e in week["lunations"] + week["stations"] + week["ingresses"])
+    assert all("2026-10-12" <= e["exact"][:10] <= "2026-10-18" for e in week["lunations"] + week["stations"] + week["ingresses"])
     # The same week, scanned contact by contact: every headline is a span the scan knows.
-    scan = json.loads(list_upcoming_transits(start_date="2026-10-14", end_date="2026-10-20", max_orb=1.5, **BIRTH))
+    scan = json.loads(list_upcoming_transits(start_date="2026-10-12", end_date="2026-10-18", max_orb=1.5, **BIRTH))
     spans = {(r["from_object"], r["to_object"], r["type"]) for r in scan["transits"]}
     assert all((h["transiting"], h["natal"], h["aspect"]) in spans for h in heads)
+
+
+def test_a_contact_in_orb_without_perfecting_says_when_it_does(week, month):
+    for data, first, last in ((week, "2026-10-12", "2026-10-18"), (month, "2026-10-01", "2026-10-31")):
+        for h in data["headline_transits"]:
+            if h["exact"]:
+                assert h["nearest_exact"] == h["exact"]
+            elif h["nearest_exact"]:
+                assert not (first <= h["nearest_exact"][:10] <= last), h["label"]
+                assert f"exact {h['nearest_exact']}" in h["label"]
+            else:
+                assert "not exact within" in h["label"]
+            if h["exact"] or h["start"] == h["end"]:
+                assert h["movement"] is None
+            else:
+                assert h["movement"] in {"applying", "separating"} and h["label"].endswith(h["movement"])
+    assert any(h["nearest_exact"] and not h["exact"] for h in week["headline_transits"]), "no backdrop contact this week"
 
 
 def test_bad_input_is_an_error_not_a_crash():
