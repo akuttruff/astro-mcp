@@ -548,6 +548,7 @@ def extract_aspect_details(chart: Any) -> list[dict]:
                     "from_object": from_name,
                     "to_object": to_name,
                     "type": str(getattr(aspect, 'type', None)),
+                    "symbol": aspect_symbol(getattr(aspect, 'type', None)),
                     "orb": actual_orb,
                     # No "distance": it is `orb` rendered as DMS, and its sign
                     # says what `movement` already says. Two spellings of one
@@ -679,6 +680,36 @@ def canonical_point(name: str, allowed: list[str]) -> str | None:
         if candidate.lower() == raw.lower():
             return candidate
     return None
+
+# The standard glyph for each aspect, sent with every aspect record so the
+# model copies it instead of inventing one (it has written a Saturn glyph
+# for a sextile). The minor ones are here for completeness; only the five
+# majors are detected.
+ASPECT_SYMBOLS = {
+    'conjunction': '\u260c',      # ☌
+    'opposition': '\u260d',       # ☍
+    'square': '\u25a1',           # □
+    'trine': '\u25b3',            # △
+    'sextile': '\u26b9',          # ⚹
+    'quincunx': '\u26bb',         # ⚻
+    'semi-sextile': '\u26ba',     # ⚺
+    'semisextile': '\u26ba',
+    'semi-square': '\u2220',      # ∠
+    'semisquare': '\u2220',
+    'sesquiquadrate': '\u26bc',   # ⚼
+    'quintile': 'Q',
+    'biquintile': 'bQ',
+    'septile': 'S',
+    'novile': 'N',
+    'parallel': '\u2225',         # ∥
+    'contraparallel': '\u22d5',   # ⋕
+}
+
+
+def aspect_symbol(name) -> str:
+    """The glyph for an aspect name in any casing, or '' for one without."""
+    return ASPECT_SYMBOLS.get(str(name).strip().lower(), '')
+
 
 # Major aspects: name -> (exact angle, base detection orb in degrees).
 # The orb here is the widest case; the bodies involved narrow it -- see
@@ -832,6 +863,7 @@ def calculate_major_aspects(positions: dict, speeds: dict | None = None) -> list
                     "from_object": a,
                     "to_object": b,
                     "type": aspect_name,
+                    "symbol": aspect_symbol(aspect_name),
                     "orb": orb,
                 }
                 if speeds:
@@ -867,6 +899,7 @@ def cross_chart_aspects(positions_a: dict, positions_b: dict,
                     "to_object": name_b,
                     "to_chart": chart_b,
                     "type": aspect_name,
+                    "symbol": aspect_symbol(aspect_name),
                     "orb": orb,
                 }
                 if speeds_a is not None:
@@ -926,6 +959,7 @@ def calculate_transit_to_natal_aspects(transit_chart: Any, natal_positions: dict
                     "from_object": transiting,
                     "to_object": natal_name,
                     "type": aspect_name,
+                    "symbol": aspect_symbol(aspect_name),
                     "orb": orb,
                 }
                 # The natal point is fixed, so the transiting body's own

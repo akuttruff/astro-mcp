@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from pydantic import Field
 
 from astro_mcp.utils import (
+    aspect_symbol,
     describe_chart_error, NATAL_TRANSIT_TARGETS, SIGNS, SPEED_ORDER, compact_chart_json, error_response,
     calculate_transit_to_natal_aspects, calculate_major_aspects, MAJOR_OBJECTS, MAJOR_ASPECTS, filter_aspects,
     validate_date_string, validate_latitude, validate_longitude, parse_names,
@@ -969,6 +970,7 @@ def list_upcoming_transits(
                     "from_object": from_obj,
                     "to_object": to_obj,
                     "type": aspect_type,
+                    "symbol": aspect_symbol(aspect_type),
                     "orb": round(min(orb_by_day[d] for d in run), 2),
                     # Local moment the aspect is exact; null when the
                     # crossing falls outside the scan window.
