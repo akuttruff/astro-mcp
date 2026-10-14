@@ -84,6 +84,15 @@ def add_datetime_context(error_msg: str) -> str:
     return f"{error_msg}\n\nCurrent datetime: {dt['current_datetime']} ({dt['weekday']})"
 
 
+def _moves(obj: Any) -> bool:
+    """A body that can be retrograde: the planets and Chiron (an asteroid to immanuel).
+
+    The nodes and Lilith run backwards by definition and the angles have
+    no motion of their own, so none of those gets a speed or a flag.
+    """
+    return getattr(obj.type, "name", None) in ("Planet", "Asteroid")
+
+
 def _compact_object(obj: Any, house_overrides: dict[str, int] | None = None) -> dict:
     """Compact representation of a single chart object.
 
@@ -106,8 +115,12 @@ def _compact_object(obj: Any, house_overrides: dict[str, int] | None = None) -> 
         "position": f"{obj.sign_longitude.formatted} {obj.sign.name}",
         "house": house,
     }
-    if getattr(obj.type, "name", None) == "Planet":
-        entry["speed"] = round(obj.speed, 2)  # negative speed = retrograde
+    if _moves(obj):
+        entry["speed"] = round(obj.speed, 2)
+        # Spelled out beside the speed: a reader quoting the planet in a
+        # table or a sentence marks it ℞ from this, not from the sign of
+        # a number it may not look at.
+        entry["retrograde"] = obj.speed < 0
     return entry
 
 
@@ -649,6 +662,8 @@ def natal_positions_block(natal_chart: Any, names: list[str] | None = None) -> d
         entry = sign_position(obj.longitude.raw)
         house = getattr(obj, "house", None)
         entry["house"] = house.number if house is not None else None
+        if _moves(obj):
+            entry["retrograde"] = obj.speed < 0  # a natal planet can be, too
         block[obj.name] = entry
     return block
 

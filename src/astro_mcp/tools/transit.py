@@ -598,6 +598,11 @@ def create_transit_chart(
             for obj in transit_chart.objects.values()
             if obj.name in MAJOR_OBJECTS
         }
+        transit_retrograde = {
+            obj.name: getattr(obj, "speed", 0) < 0
+            for obj in transit_chart.objects.values()
+            if obj.name in MAJOR_OBJECTS
+        }
         for aspect in filtered_aspects:
             aspect["exact_at"] = _aspect_exact_at(aspect, object_ids, natal_positions, snapshot)
             # Both ends spelled out, so "Saturn square Saturn" can only be
@@ -609,12 +614,16 @@ def create_transit_chart(
             aspect["to_sign"] = fixed["sign"]
             aspect["to_position"] = fixed["position"]
             aspect["to_house"] = fixed["house"]
+            aspect["from_retrograde"] = transit_retrograde.get(aspect["from_object"], False)
+            aspect["to_retrograde"] = fixed.get("retrograde", False)
             # One sentence with the roles, the movement and the timing, so
             # nothing has to be assembled from the fields.
             label = aspect_label(
                 aspect["from_object"], moving["position"], aspect["type"], aspect["to_object"], fixed["position"],
                 natal_house=fixed["house"],
             )
+            if aspect["from_retrograde"]:
+                label += ", retrograde"
             movement = aspect.get("movement")
             if movement:
                 label += f", {movement.lower().replace('applicative', 'applying').replace('separative', 'separating')}"
@@ -964,6 +973,8 @@ def list_upcoming_transits(
                     from_obj, facts["from_position"], aspect_type, to_obj, facts["to_position"],
                     natal_mode=natal_positions is not None, natal_house=facts.get("to_house"),
                 )
+                if facts.get("from_retrograde"):
+                    label += ", retrograde"
                 transits.append({
                     "start": run[0],
                     "end": run[-1],

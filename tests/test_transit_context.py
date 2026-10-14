@@ -71,9 +71,30 @@ def test_every_span_reads_as_one_sentence_with_the_roles_and_moment(week):
         when = f"exact {r['exact']}" if r["exact"] else f"tightest "
         assert r["label"].startswith(when)
         assert f"transiting {r['from_object']} {r['from_position']} {r['type'].lower()} natal {r['to_object']} {r['to_position']}" in r["label"]
-        if r["to_house"]:
-            assert r["label"].endswith(f"(natal house {r['to_house']})")
+        house = f"(natal house {r['to_house']})" if r["to_house"] else ""
+        # A retrograde transiting planet says so at the end, so a reader marks it.
+        assert r["label"].endswith(house + (", retrograde" if r["from_retrograde"] else "")), r["label"]
     assert "not where the bodies are today" in week["positions_note"]
+
+
+def test_retrograde_is_spelled_out_wherever_a_planet_appears(week, snapshot):
+    """Negative speed alone was easy to miss; every planet record and both ends of an aspect say it."""
+    for name, obj in snapshot["objects"].items():
+        if "speed" in obj:
+            assert obj["retrograde"] is (obj["speed"] < 0), name
+    natal = snapshot["natal"]["positions"]
+    chart = natal_chart()
+    for obj in chart.objects.values():
+        if obj.name in natal and obj.type.name in ("Planet", "Asteroid"):
+            assert natal[obj.name]["retrograde"] is (obj.speed < 0), obj.name
+    assert "retrograde" not in natal["Asc"] and "retrograde" not in natal["True North Node"]
+    assert "retrograde" in snapshot["objects"]["Chiron"]
+    for a in snapshot["aspects"]:
+        assert a["from_retrograde"] is snapshot["objects"][a["from_object"]]["retrograde"]
+        assert a["to_retrograde"] is natal[a["to_object"]].get("retrograde", False)
+        assert (", retrograde" in a["label"]) is a["from_retrograde"]
+    assert any(o.get("retrograde") for o in snapshot["objects"].values()), "pick a date with a retrograde planet"
+    assert any(r["from_retrograde"] for r in rows(week)) or not rows(week)
 
 
 def test_the_two_directions_of_a_square_are_told_apart(week):
