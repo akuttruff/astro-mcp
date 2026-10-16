@@ -551,6 +551,42 @@ class TestListUpcomingTransits:
         assert data["transit_range"]["start"] == "2025-06-15"
         assert data["transit_range"]["end"] == "2025-06-20"
 
+    def test_scan_budget_truncates_and_says_where_to_resume(self, reference_a, monkeypatch):
+        """Out of time, the scan keeps the day it was on, reports the cut,
+        and names the start_date that continues it."""
+        import astro_mcp.tools.transit as transit_module
+
+        from astro_mcp.tools.transit import list_upcoming_transits
+        monkeypatch.setattr(transit_module, "SCAN_BUDGET_SECONDS", 0.0)
+        data = json.loads(list_upcoming_transits(
+            date_time=reference_a["date_time"],
+            latitude=reference_a["latitude"],
+            longitude=reference_a["longitude"],
+            start_date="2025-06-15",
+            end_date="2025-06-20",
+        ))
+
+        assert data["transit_range"] == {"start": "2025-06-15", "end": "2025-06-15"}
+        assert data["scan_truncated"]["requested_end"] == "2025-06-20"
+        assert data["scan_truncated"]["scanned_through"] == "2025-06-15"
+        assert "start_date='2025-06-16'" in data["scan_truncated"]["hint"]
+        assert "end_date='2025-06-20'" in data["scan_truncated"]["hint"]
+        assert all(t["end"] <= "2025-06-15" for t in data["transits"])
+
+    def test_short_scan_is_not_truncated(self, reference_a):
+        """Within budget there is no scan_truncated block at all."""
+        from astro_mcp.tools.transit import list_upcoming_transits
+
+        data = json.loads(list_upcoming_transits(
+            date_time=reference_a["date_time"],
+            latitude=reference_a["latitude"],
+            longitude=reference_a["longitude"],
+            start_date="2025-06-15",
+            end_date="2025-06-17",
+        ))
+        assert "scan_truncated" not in data
+        assert data["transit_range"]["end"] == "2025-06-17"
+
     def test_list_upcoming_transits_scans_multiple_days(self, reference_a):
         """Test that scanning multiple days returns transits for each day."""
         from astro_mcp.tools.transit import list_upcoming_transits

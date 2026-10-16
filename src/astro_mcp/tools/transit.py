@@ -1,6 +1,7 @@
 """Transit chart tool for astro-mcp."""
 
 import json
+import time
 from typing import Annotated
 from mcp.server.mcpserver import MCPServer
 from datetime import date, datetime, timedelta, timezone
@@ -23,6 +24,12 @@ from astro_mcp.schemas import get_coordinates_for_params
 # positional arrays (lossless), and only if that is still too large are
 # high-frequency fast-object spans omitted and reported.
 _MAX_RESPONSE_CHARS = 25000
+
+# The MCP hosts this server runs under (LM Studio among them) abandon a tool
+# call at 60 seconds and report only a timeout, so a scan that would run
+# longer is worth less than a shorter one that says where to resume. The
+# daily loop checks the clock and stops here, reporting 'scan_truncated'.
+SCAN_BUDGET_SECONDS = 40.0
 
 
 def _transits_for_date(date_str: str, latitude, longitude, aspects_to, config):
@@ -815,6 +822,13 @@ def list_upcoming_transits(
     aspect (Conjunction, Opposition, Square, Trine, Sextile). Each aspect
     is listed once with start/end dates (the days it is within the orb)
     and its tightest orb over that span.
+
+    Long windows: the host allows about a minute per call, so the scan
+    stops itself after roughly 40 seconds and returns what it has with a
+    'scan_truncated' block saying the last date covered and the start_date
+    to continue from. One outer planet (e.g. object_filter='Pluto') scans
+    decades in a call; all planets together cover about a year. Narrow
+    object_filter / aspect_filter for long ranges rather than guessing.
     Use it whenever the user asks:
     - "What transits are coming up?" (default range: today to +60 days)
     - "When will X next aspect Y?"
@@ -996,6 +1010,8 @@ def list_upcoming_transits(
         # Collect daily aspect samples (key -> {date: orb})
         samples = {}
         current_date = start
+        deadline = time.monotonic() + SCAN_BUDGET_SECONDS
+        requested_end = end
 
         while current_date <= end:
             # Create transit chart for this date (local midnight)
@@ -1039,6 +1055,13 @@ def list_upcoming_transits(
                     orb_by_day[day_iso] = min(orb_by_day[day_iso], aspect["orb"])
                 else:
                     orb_by_day[day_iso] = aspect["orb"]
+
+            # Out of time: keep this day, report the cut, and let the fast-body
+            # pass and the spans below work to the date actually covered.
+            if current_date < end and time.monotonic() > deadline:
+                end = current_date
+                end_date = end.isoformat()
+                break
 
             current_date += timedelta(days=1)
 
@@ -1146,6 +1169,17 @@ def list_upcoming_transits(
                 "moment, or its tightest sampled day when 'exact' is null -- not where the bodies are today.",
             "transits": transits,
         }
+        if end < requested_end:
+            resume = (end + timedelta(days=1)).isoformat()
+            result["scan_truncated"] = {
+                "requested_end": requested_end.isoformat(),
+                "scanned_through": end.isoformat(),
+                "reason": f"the scan stopped after {SCAN_BUDGET_SECONDS:.0f} seconds to stay inside the host's one-minute tool limit",
+                "hint": (
+                    f"spans ending on {end.isoformat()} may continue; call again with start_date='{resume}' "
+                    f"and end_date='{requested_end.isoformat()}' to carry on, and narrow object_filter / aspect_filter to cover more per call"
+                ),
+            }
         if excluded_fast:
             # Silence here would read as "no lunar transits", which is never
             # true over a long window.
@@ -1465,7 +1499,7 @@ def register(mcp: MCPServer):
         list_upcoming_transits,
         name="list_upcoming_transits",
         description=(
-            "List dated transit aspects over a date range (one sample per day; default today to +60 days). "
+            "List dated transit aspects over a date range (one sample per day; default today to +60 days; long scans stop after ~40 s and return 'scan_truncated' with the date to resume from). "
             "THE tool for transit timing questions: 'what transits are coming up', 'when will X next happen', "
             "and 'how long does it last' (each aspect is listed once with start/end dates and its tightest orb, "
             "so the span is the duration; each span also carries 'exact', the local date/time to the minute when "
