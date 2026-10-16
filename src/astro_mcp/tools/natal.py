@@ -19,7 +19,7 @@ def _location_note(latitude: float, longitude: float, matched: str | None) -> di
 
 
 def create_natal_chart(
-    date_time: Annotated[str, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'. Local time at the birthplace.")],
+    date_time: Annotated[str, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1990-07-04 09:30'. Local time at the birthplace.")],
     time_is_dst: bool | None = None,
     timezone_offset: float | None = None,
     latitude: str | float | None = None,

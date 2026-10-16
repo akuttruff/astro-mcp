@@ -330,7 +330,7 @@ def validate_date_string(date_str: str) -> tuple[bool, str]:
         return False, (
             f"Invalid date format: got {date_str!r}. Convert it to "
             "'YYYY-MM-DD HH:MM' (ISO 8601; seconds and fractional seconds, or "
-            "'T' separator, are accepted), e.g. '1984-05-10 20:44'."
+            "'T' separator, are accepted), e.g. '1990-07-04 09:30'."
         )
 
     date_part, time_part = match.groups()

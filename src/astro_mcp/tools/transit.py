@@ -543,7 +543,7 @@ def _aspect_exact_at(aspect: dict, ids: dict[str, int],
 
 
 def create_transit_chart(
-    date_time: Annotated[str, Field(description="Birth date and time of the natal chart in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'.")],
+    date_time: Annotated[str, Field(description="Birth date and time of the natal chart in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1990-07-04 09:30'.")],
     latitude: str | float | None = None,
     longitude: str | float | None = None,
     transit_date_time: Annotated[str | None, Field(description="Transit date and time in ISO 8601: 'YYYY-MM-DD HH:MM'. Omit for 'now' and for today's reading; for another single day use that date at 12:00.")] = None,

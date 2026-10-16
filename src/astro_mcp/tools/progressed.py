@@ -11,7 +11,7 @@ from astro_mcp.schemas import get_coordinates_for_params
 
 
 def create_progressed_chart(
-    date_time: Annotated[str, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'. Local time at the birthplace.")],
+    date_time: Annotated[str, Field(description="Birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1990-07-04 09:30'. Local time at the birthplace.")],
     target_date: Annotated[str, Field(description="Date to progress to, in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional).")],
     latitude: str | float | None = None,
     longitude: str | float | None = None,

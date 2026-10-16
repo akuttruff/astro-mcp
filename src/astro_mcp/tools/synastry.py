@@ -24,10 +24,10 @@ def register(mcp: MCPServer):
     """Register the create_synastry tool with MCPServer."""
 
     def create_synastry(
-        date_time_a: Annotated[str, Field(description="Person A birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'.")],
+        date_time_a: Annotated[str, Field(description="Person A birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1990-07-04 09:30'.")],
         latitude_a: str | float,
         longitude_a: str | float,
-        date_time_b: Annotated[str, Field(description="Person B birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1984-05-10 20:44'.")],
+        date_time_b: Annotated[str, Field(description="Person B birth date and time in ISO 8601: 'YYYY-MM-DD HH:MM' (seconds and 'T' separator optional), e.g. '1990-07-04 09:30'.")],
         latitude_b: str | float,
         longitude_b: str | float,
     ) -> str:

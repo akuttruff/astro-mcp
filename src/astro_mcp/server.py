@@ -48,9 +48,9 @@ mcp = MCPServer(
         "the time defaults to now, and a place is required. Lead with its summary, cite its testimony and flagged "
         "considerations, and never judge the chart yourself. Use cast_horary_chart only to show the chart itself. "
         "Houses are whole sign in every chart; horary alone uses its own traditional settings (Regiomontanus). "
-        "Date format: pass all datetimes as ISO 8601 'YYYY-MM-DD HH:MM' (e.g. '1984-05-10 20:44') and date-only "
+        "Date format: pass all datetimes as ISO 8601 'YYYY-MM-DD HH:MM' (e.g. '1990-07-04 09:30') and date-only "
         "params as 'YYYY-MM-DD'. Convert natural-language dates from the user (e.g. 'May 10, 1984 8:44 PM' -> "
-        "'1984-05-10 20:44') before calling tools - free-form date strings are rejected. "
+        "'1990-07-04 09:30') before calling tools - free-form date strings are rejected. "
     ),
 )
 
