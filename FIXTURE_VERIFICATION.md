@@ -2,7 +2,7 @@
 
 ## Overview
 
-Reference fixtures are used to verify that the astro-mcp tool output matches expected values. These fixtures are generated from the [immanuel-python](https://github.com/tylerthetyran/immanuel) library and should be verified against a trusted external source.
+Reference fixtures are used to verify that the astro-mcp tool output matches expected values. These fixtures are generated from the [immanuel-python](https://github.com/theriftlab/immanuel-python) library and should be verified against a trusted external source.
 
 ## Current Fixture Sources
 

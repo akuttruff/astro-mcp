@@ -1,6 +1,6 @@
 # astro-mcp
 
-An MCP (Model Context Protocol) server that exposes the [immanuel-python](https://github.com/tylerthetyran/immanuel) v1.6.0 astrology calculation library as tools callable from local LLMs.
+An MCP (Model Context Protocol) server that exposes the [immanuel-python](https://github.com/theriftlab/immanuel-python) v1.6.0 astrology calculation library as tools callable from local LLMs.
 
 ## Features
 
