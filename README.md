@@ -139,6 +139,227 @@ pytest -v
 
 Integration tests verify that immanuel generates correct charts.
 
+## Examples
+
+A model calls a tool with plain arguments and gets JSON back. These are real
+results for the public reference chart the tests use (15 June 1990, 14:30,
+New York), trimmed to a few entries each.
+
+**A birth chart.** The call:
+
+```json
+{
+  "name": "create_natal_chart",
+  "arguments": {
+    "date_time": "1990-06-15 14:30",
+    "latitude": 40.74,
+    "longitude": -73.99
+  }
+}
+```
+
+Part of the result, two of the objects, two houses, one aspect and one pattern:
+
+```json
+{
+  "chart_type": "natal",
+  "date_time": "1990-06-15 14:30",
+  "house_system": "whole_sign",
+  "objects": {
+    "Sun": {
+      "longitude": 84.3882,
+      "position": "24°23'18\" Gemini",
+      "house": 9,
+      "speed": 0.96,
+      "retrograde": false
+    },
+    "Moon": {
+      "longitude": 348.9901,
+      "position": "18°59'24\" Pisces",
+      "house": 6,
+      "speed": 13.46,
+      "retrograde": false
+    }
+  },
+  "houses": {
+    "1": {
+      "cusp": 180.0,
+      "position": "00°00'00\" Libra"
+    },
+    "10": {
+      "cusp": 90.0,
+      "position": "00°00'00\" Cancer"
+    }
+  },
+  "aspects": [
+    {
+      "from_object": "Desc",
+      "to_object": "Mars",
+      "type": "Conjunction",
+      "symbol": "☌",
+      "orb": 2.47,
+      "condition": "Associate",
+      "movement": "Separative"
+    }
+  ],
+  "aspect_patterns": {
+    "t_square": [
+      [
+        [
+          "Part of Fortune"
+        ],
+        [
+          "Desc",
+          "Mars"
+        ],
+        [
+          "IC",
+          "Saturn",
+          "Uranus",
+          "Neptune"
+        ]
+      ]
+    ]
+  },
+  "diurnal": true,
+  "moon_phase": {
+    "phase": "Third Quarter",
+    "waxing": false,
+    "illumination": 0.547
+  }
+}
+```
+
+**One day's transits.** Each aspect carries its exact moment, every pass of
+a retrograde run, and a `label` the model can quote as it stands:
+
+```json
+{
+  "name": "create_transit_chart",
+  "arguments": {
+    "date_time": "1990-06-15 14:30",
+    "latitude": 40.74,
+    "longitude": -73.99,
+    "transit_date_time": "2026-11-07 12:00",
+    "aspect_type": "Conjunction,Square,Opposition",
+    "max_orb": 2
+  }
+}
+```
+
+```json
+{
+  "chart_type": "transit",
+  "date_time": "2026-11-07 12:00",
+  "aspects": [
+    {
+      "from_object": "Sun",
+      "to_object": "Pluto",
+      "type": "Conjunction",
+      "symbol": "☌",
+      "orb": 0.1,
+      "movement": "Applicative",
+      "exact_at": "2026-11-07 14:20",
+      "passes": [
+        "2026-11-07 14:20"
+      ],
+      "pass": null,
+      "from_sign": "Scorpio",
+      "from_position": "15°18' Scorpio",
+      "to_sign": "Scorpio",
+      "to_position": "15°24' Scorpio",
+      "to_house": 2,
+      "from_retrograde": false,
+      "to_retrograde": true,
+      "label": "transiting Sun 15°18' Scorpio conjunction natal Pluto 15°24' Scorpio (natal house 2), applying, exact 2026-11-07 14:20"
+    }
+  ]
+}
+```
+
+**Checking a claim** before the model repeats it, here a Saturn opposition:
+
+```json
+{
+  "name": "verify_claim",
+  "arguments": {
+    "date_time": "1990-06-15 14:30",
+    "latitude": 40.74,
+    "longitude": -73.99,
+    "transiting_object": "Saturn",
+    "natal_object": "Saturn",
+    "aspect_type": "Opposition",
+    "on_date": "2005-03-01"
+  }
+}
+```
+
+```json
+{
+  "claim": "transiting Saturn opposition natal Saturn on 2005-03-01",
+  "verdict": "confirmed",
+  "on_date": {
+    "date": "2005-03-01",
+    "orb": 3.24,
+    "allowed_orb": 7.0,
+    "within_orb": true,
+    "transiting": {
+      "longitude": 110.7762,
+      "sign": "Cancer",
+      "position": "20°47' Cancer",
+      "retrograde": true
+    },
+    "natal": {
+      "longitude": 294.016,
+      "sign": "Capricorn",
+      "position": "24°01' Capricorn",
+      "house": 4,
+      "retrograde": true
+    }
+  },
+  "exact": "2005-01-12 02:16",
+  "days_from_date": -48.4,
+  "note": "In effect on 2005-03-01: orb 3.24° (allowed 7.00°). Exact at 2005-01-12 02:16."
+}
+```
+
+**New and full moons** for a range, in the place's local time:
+
+```json
+{
+  "name": "lunations_and_eclipses",
+  "arguments": {
+    "start_date": "2026-11-01",
+    "end_date": "2026-12-31",
+    "city": "New York",
+    "country": "USA"
+  }
+}
+```
+
+```json
+{
+  "range": {
+    "start": "2026-11-01",
+    "end": "2026-12-31"
+  },
+  "timezone": "America/New_York",
+  "events": [
+    {
+      "event": "new moon",
+      "exact": "2026-11-09 02:02",
+      "position": "16°53' Scorpio"
+    },
+    {
+      "event": "full moon",
+      "exact": "2026-11-24 09:54",
+      "position": "2°20' Gemini"
+    }
+  ]
+}
+```
+
+
 ## Development
 
 The project follows a TDD approach with reference fixtures generated from verified astro.com data. Each tool has dedicated tests.
